@@ -222,6 +222,34 @@ test('shiftDate et daysBetween traversent les mois', () => {
   assert.equal(E.daysBetween('2026-08-16', '2026-08-01'), -15);
 });
 
+test('weekStart donne le lundi de la semaine ISO', () => {
+  assert.equal(E.weekStart('2026-W33'), '2026-08-10');   // lundi
+  assert.equal(E.weekStart(E.weekKey('2026-08-16')), '2026-08-10'); // dimanche -> lundi précédent
+  assert.equal(E.weekStart(E.weekKey('2026-08-17')), '2026-08-17'); // lundi -> lui-même
+  assert.equal(E.weekStart('2026-W01'), '2025-12-29');   // la S1 2026 commence en 2025
+  assert.equal(E.weekStart('2027-W01'), '2027-01-04');
+});
+
+test('weekStart est cohérent avec weekKey sur une année entière', () => {
+  let d = '2026-01-01';
+  for (let i = 0; i < 365; i++) {
+    const k = E.weekKey(d);
+    const lundi = E.weekStart(k);
+    assert.equal(E.weekKey(lundi), k, `${d} -> ${k} -> ${lundi}`);
+    assert.ok(E.daysBetween(lundi, d) >= 0 && E.daysBetween(lundi, d) <= 6, `${d} hors de sa semaine`);
+    d = E.shiftDate(d, 1);
+  }
+});
+
+test('niceMax arrondit à une graduation lisible sans jamais tronquer', () => {
+  assert.ok(E.niceMax(53.8) >= 53.8);
+  assert.equal(E.niceMax(53.8), 60);
+  assert.equal(E.niceMax(100), 100);
+  assert.equal(E.niceMax(7), 8);
+  assert.equal(E.niceMax(0), 1);
+  assert.equal(E.niceMax(1240), 1500);
+});
+
 test('weekSeries regroupe les séances par semaine ISO', () => {
   const ws = E.weekSeries(SESSIONS, IX, 80);
   assert.equal(ws.length, 3);
@@ -296,6 +324,10 @@ test('fmtDur, fmtClock et fmtVol restent lisibles', () => {
   assert.equal(E.fmtDur(38000), '38 s');
   assert.equal(E.fmtClock(125), '2:05');
   assert.equal(E.fmtClock(0), '0:00');
+  // Une séance dépasse l'heure : sans ce cas, le chrono affichait « 83:12 ».
+  assert.equal(E.fmtClock(3600), '1:00:00');
+  assert.equal(E.fmtClock(83 * 60 + 12), '1:23:12');
+  assert.equal(E.fmtClock(59 * 60 + 59), '59:59');
   assert.equal(E.fmtVol(840), '840 kg');
   assert.equal(E.fmtVol(12400), '12,4 t');
 });

@@ -35,7 +35,7 @@ Zéro build : on édite, on recharge.
 
 ```bash
 python3 -m http.server 8123 --directory docs   # http://localhost:8123
-node --test tests/*.test.mjs                   # 28 tests du moteur
+node --test tests/*.test.mjs                   # 31 tests du moteur
 for f in docs/*.js; do node --check "$f"; done # syntaxe
 ```
 

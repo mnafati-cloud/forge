@@ -28,7 +28,7 @@ modification non triviale.
 3. **Ne jamais pousser d'export personnel.** `forge-export-*.json` contient des données de santé.
    Ils sont dans `.gitignore` — ne l'affaiblis jamais. Le dépôt est **public**.
 
-4. **`node --test tests/*.test.mjs` doit être 100 % vert avant chaque push** (28 tests minimum).
+4. **`node --test tests/*.test.mjs` doit être 100 % vert avant chaque push** (31 tests minimum).
    En plus : `node --check` sur chaque JS de `docs/` modifié (la CI le fait sur tous).
    Un test rouge = tu ne pousses pas, point.
 
@@ -51,7 +51,20 @@ modification non triviale.
    Un disque de 1,25 kg passé dans un arrondi au dixième devient 1,3 et fait dériver tous les totaux.
    Ce bug a déjà été rencontré une fois — il est verrouillé par les tests `platePlan`.
 
-10. **Dans le doute : ne pousse pas.** Demande, ou fais moins.
+10. **Zéro emoji dans l'interface, zéro dialogue natif.** Les emoji sont rendus par la police du
+    téléphone (Noto Color Emoji sur Android) : bitmap couleur, ignorant `color`, alignement erratique.
+    Toute icône passe par `ICONS` + `ico(nom, taille)` dans app.js — SVG en ligne, grille 24, trait 1,7,
+    `currentColor`. De même, `confirm()`/`prompt()`/`alert()` sont **interdits** : sur Android ils
+    affichent l'origine du site et sortent l'app installée de son plein écran. Utiliser `askDialog()`.
+
+11. **Le design a trois échelles, et rien en dehors.** Couleurs : uniquement des variables `:root`,
+    et **les deux thèmes redéfinissent TOUTES les couleurs sémantiques** (`--ok`, `--warn`, `--bad`,
+    `--pr`, `--acc`) — une teinte pensée pour le fond sombre tombe à 1,4:1 sur fond clair.
+    Typographie : les six crans `--t-xs` … `--t-2xl`, jamais une taille en dur.
+    Espacement : les six crans `--s1` … `--s6`, jamais une marge à l'œil. Tout texte doit tenir
+    4,5:1 sur son fond ; `--fg3` est la limite basse, `--fg-dim` ne porte JAMAIS de texte.
+
+12. **Dans le doute : ne pousse pas.** Demande, ou fais moins.
 
 ## Architecture — les couches
 
@@ -94,7 +107,7 @@ docs/                 l'app servie telle quelle par GitHub Pages
   manifest.json       PWA installable   icon-192/512 + icon-maskable-512.png
   .nojekyll           désactive Jekyll sur GitHub Pages
 tools/make_icons.py   régénère les icônes PNG (encodeur PNG maison, zéro dépendance)
-tests/engine.test.mjs 28 tests contractuels du moteur
+tests/engine.test.mjs 31 tests contractuels du moteur
 .github/workflows/ci.yml     tests + node --check + JSON + garde-fou sur le bump de CACHE
 .github/workflows/pages.yml  déploiement Pages via GitHub Actions
 MAINTENANCE.md        LE manuel : contrats, recettes R1-R8, pièges P1-P7, checklist
@@ -106,7 +119,7 @@ MAINTENANCE.md        LE manuel : contrats, recettes R1-R8, pièges P1-P7, check
 # Serveur local (puis ouvrir http://localhost:8123)
 python3 -m http.server 8123 --directory docs
 
-# Tests du moteur (OBLIGATOIRE avant push) — 28 tests
+# Tests du moteur (OBLIGATOIRE avant push) — 31 tests
 node --test tests/*.test.mjs
 
 # Syntaxe de tous les JS de l'app (ce que fait la CI)
@@ -118,7 +131,7 @@ python3 tools/make_icons.py
 
 ## Processus de release en 6 étapes
 
-1. `node --test tests/*.test.mjs` → tout vert. Sinon STOP.
+1. `node --test tests/*.test.mjs` → 31 tests, tout vert. Sinon STOP.
 2. `node --check` sur chaque JS de `docs/` modifié.
 3. Bump `CACHE` dans `docs/sw.js` (+1) ; `ASSETS` à jour si un fichier a été ajouté dans `docs/`.
 4. Test local : `python3 -m http.server 8123 --directory docs` → parcours complet + un export.

@@ -23,6 +23,48 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+
+  /* ================================================================== */
+  /* Jeu d'icônes — SVG en ligne, grille 24, trait 1.7, currentColor.    */
+  /* Aucun emoji dans l'interface : leur rendu dépend de la police       */
+  /* système du téléphone et casse l'alignement optique.                 */
+  /* ================================================================== */
+
+  var ICONS = {
+    dumbbell: '<path d="M3 10.25v3.5M6.75 7.25v9.5M17.25 7.25v9.5M21 10.25v3.5M6.75 12h10.5"/>',
+    log: '<path d="M9.5 6.5h10.5M9.5 12h10.5M9.5 17.5h7M4 6.5h1.75M4 12h1.75M4 17.5h1.75"/>',
+    trend: '<path d="M3.5 17.5l5.5-5.5 3.5 3.5 8-8"/><path d="M14.5 7.5h6v6"/>',
+    sliders: '<path d="M5 21v-6.5M5 10.5V3M12 21v-8.5M12 8.5V3M19 21v-4.5M19 12.5V3M2.5 14.5h5M9.5 10.5h5M16.5 16.5h5"/>',
+    plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+    minus: '<path d="M5.5 12h13"/>',
+    check: '<path d="M4.75 12.75l4.75 4.75L19.25 6.5"/>',
+    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    repeat: '<path d="M3.75 12a8.25 8.25 0 0 1 14.1-5.83L20.25 8.5"/><path d="M20.25 3.75V8.5h-4.75"/>'
+      + '<path d="M20.25 12a8.25 8.25 0 0 1-14.1 5.83L3.75 15.5"/><path d="M3.75 20.25V15.5H8.5"/>',
+    flame: '<path d="M12 3.25c3.6 3.3 5.5 6.15 5.5 8.9a5.5 5.5 0 1 1-11 0c0-1.55.6-2.98 1.8-4.28.3 1.25.92 2.05 1.85 2.4C10.35 8.1 10.95 5.55 12 3.25z"/>',
+    trophy: '<path d="M7 4h10v4.75a5 5 0 0 1-10 0z"/><path d="M7 5.75H4.5v1.4a3.5 3.5 0 0 0 3.4 3.5"/>'
+      + '<path d="M17 5.75h2.5v1.4a3.5 3.5 0 0 1-3.4 3.5"/><path d="M12 13.75V17.5M8.25 20.25h7.5"/>',
+    timer: '<circle cx="12" cy="13.75" r="7.25"/><path d="M12 10v3.75l2.5 1.75M9.5 2.75h5"/>',
+    alert: '<path d="M12 4.25L2.75 20h18.5z"/><path d="M12 10.25v4.25"/>'
+      + '<circle cx="12" cy="17.4" r=".95" fill="currentColor" stroke="none"/>',
+    bulb: '<path d="M12 3.25a5.75 5.75 0 0 0-3.4 10.4c.55.4.9 1.05.9 1.72v.38h5v-.38c0-.67.35-1.32.9-1.72A5.75 5.75 0 0 0 12 3.25z"/><path d="M10 18.5h4M10.75 21h2.5"/>',
+    download: '<path d="M12 3.75v11.5M7.25 10.75L12 15.5l4.75-4.75M4 20.25h16"/>',
+    upload: '<path d="M12 15.5V4M7.25 8.75L12 4l4.75 4.75M4 20.25h16"/>',
+    chevronDown: '<path d="M6.5 9.75l5.5 5.5 5.5-5.5"/>',
+    chevronRight: '<path d="M9.75 6.5l5.5 5.5-5.5 5.5"/>',
+    trash: '<path d="M4.25 6.5h15.5M9.75 6.5V3.75h4.5V6.5M6.5 6.5l.9 13.75h9.2l.9-13.75M10 10.5v6M14 10.5v6"/>',
+    scale: '<path d="M4 20.25h16L17.4 9.5H6.6z"/><circle cx="12" cy="5.75" r="2.5"/>',
+    note: '<path d="M5.5 3.75h9L18.5 8v12.25h-13z"/><path d="M14.25 3.75V8h4.25M8.75 12.5h6.5M8.75 16h4.5"/>'
+  };
+
+  /** Icône en ligne. `cls` permet de la colorer via une classe existante. */
+  function ico(name, size, cls) {
+    if (!ICONS[name]) return '';
+    return '<svg class="ico' + (cls ? ' ' + cls : '') + '" width="' + (size || 20) + '" height="' + (size || 20) +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+  }
+
   function todayStr(ts) {
     var d = ts ? new Date(ts) : new Date();
     return d.getFullYear() + '-' +
@@ -69,7 +111,7 @@
   var ST = null;
 
   function defState() {
-    return { v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)), ses: [], cur: null, ex: {}, bw: [] };
+    return { v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)), ses: [], cur: null, ex: {}, bw: [], rest: null };
   }
 
   function loadState() {
@@ -86,6 +128,7 @@
     if (!s.ex || typeof s.ex !== 'object') s.ex = {};
     if (s.cur && !Array.isArray(s.cur.s)) s.cur = null;
     if (s.cur && !Array.isArray(s.cur.p)) s.cur.p = [];
+    if (!s.rest || typeof s.rest.end !== 'number') s.rest = null;
     s.v = 1;
     return s;
   }
@@ -95,7 +138,7 @@
     clearTimeout(saveT);
     var doIt = function () {
       try { localStorage.setItem(KEY, JSON.stringify(ST)); }
-      catch (e) { toast('⚠️ Sauvegarde impossible (stockage plein ?)'); }
+      catch (e) { toast('Sauvegarde impossible — stockage plein ?', 'alert'); }
     };
     if (now) doIt(); else saveT = setTimeout(doIt, 250);
   }
@@ -140,13 +183,26 @@
     if (ST.set.vibrate && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { } }
   }
 
-  var tT = null;
-  function toast(msg, kind) {
+  var tT = null, undoFn = null;
+  var TOAST_ICO = { pr: 'trophy', alert: 'alert', timer: 'timer', ok: 'check' };
+
+  /**
+   * kind : '' | 'ok' | 'alert' | 'timer' | 'pr'.
+   * `undo` : callback facultatif ; affiche « Annuler » et laisse 6 s pour revenir.
+   */
+  function toast(msg, kind, undo) {
     var box = $('toast');
-    box.innerHTML = '<div class="toast' + (kind ? ' ' + kind : '') + '">' + esc(msg) + '</div>';
+    var name = TOAST_ICO[kind];
+    undoFn = undo || null;
+    box.innerHTML = '<div class="toast' + (kind ? ' ' + kind : '') + '" role="status">' +
+      (name ? ico(name, 19) : '') + '<span>' + esc(msg) + '</span>' +
+      (undo ? '<button class="undo" data-act="undo">Annuler</button>' : '') + '</div>';
     clearTimeout(tT);
-    tT = setTimeout(function () { box.innerHTML = ''; }, kind === 'pr' ? 3400 : 2200);
+    tT = setTimeout(function () { box.innerHTML = ''; undoFn = null; },
+      undo ? 6000 : kind === 'pr' ? 3400 : 2200);
   }
+
+  function hideToast() { clearTimeout(tT); $('toast').innerHTML = ''; undoFn = null; }
 
   /* Écran allumé pendant la séance (best effort, ignoré si non supporté). */
   var wl = null;
@@ -167,9 +223,16 @@
 
   var rest = { end: 0, total: 0, iv: null };
 
-  function restStart(sec) {
+  /**
+   * Le chrono est mémorisé dans l'état : Chrome décharge volontiers un onglet
+   * en arrière-plan, et un repos qui disparaît pendant qu'on soulève ne sert à rien.
+   * On repart de l'heure de fin absolue, jamais d'un compteur en mémoire.
+   */
+  function restStart(sec, gardeFin) {
     rest.total = sec;
-    rest.end = Date.now() + sec * 1000;
+    rest.end = gardeFin || (Date.now() + sec * 1000);
+    ST.rest = { end: rest.end, total: rest.total };
+    save(true);
     clearInterval(rest.iv);
     rest.iv = setInterval(restTick, 250);
     document.body.classList.add('resting');
@@ -178,8 +241,17 @@
   function restStop() {
     clearInterval(rest.iv);
     rest.iv = null; rest.end = 0;
+    ST.rest = null;
+    save();
     document.body.classList.remove('resting');
     $('rest').innerHTML = '';
+  }
+  /** Reprend un repos en cours après un rechargement de la page. */
+  function restResume() {
+    if (!ST.rest) return;
+    var reste = (ST.rest.end - Date.now()) / 1000;
+    if (reste <= 0.5) { ST.rest = null; save(); return; }
+    restStart(ST.rest.total || Math.ceil(reste), ST.rest.end);
   }
   function restTick() {
     var left = (rest.end - Date.now()) / 1000;
@@ -188,7 +260,7 @@
       beep(880, 0.16);
       setTimeout(function () { beep(1320, 0.22); }, 190);
       buzz([120, 80, 200]);
-      toast('⏱️ Repos terminé — à toi');
+      toast('Repos terminé', 'timer');
       return;
     }
     var pct = Math.max(0, Math.min(100, (left / rest.total) * 100));
@@ -300,9 +372,11 @@
     var pr = s.u ? { pr: false } : E.prCheck(prev, s, ex, bwNow());
     render();
 
+    keepPadVisible();
+
     if (pr.pr) {
       var lbl = pr.kind === 'load' ? 'charge' : pr.kind === 'reps' ? 'répétitions' : '1RM estimé';
-      toast('🏆 Record — ' + lbl + ' !', 'pr');
+      toast('Record — ' + lbl, 'pr');
       beep(1046, 0.12);
       setTimeout(function () { beep(1568, 0.2); }, 130);
       buzz([40, 60, 40, 60, 120]);
@@ -311,33 +385,62 @@
       buzz(25);
     }
     if (ST.set.restAuto && !s.u) restStart(ST.set.rest);
+    // Une série d'échauffement ne vaut que pour elle-même : sans ce désarmement,
+    // toutes les séries de travail suivantes étaient marquées u:1 en silence.
+    if (s.u) { UI.wu = 0; render(); }
   }
 
   function delSet(ix) {
     if (!ST.cur || !ST.cur.s[ix]) return;
+    var retiree = ST.cur.s[ix];
     ST.cur.s.splice(ix, 1);
     UI.edit = -1;   // les index bougent : on annule toute modification en cours
     save(true); render();
+    toast(setLabelPlain(retiree, exOf(retiree.x)) + ' supprimée', null, function () {
+      if (!ST.cur) return;
+      ST.cur.s.splice(Math.min(ix, ST.cur.s.length), 0, retiree);
+      if (ST.cur.p.indexOf(retiree.x) < 0) ST.cur.p.push(retiree.x);
+      save(true); render();
+      toast('Série rétablie', 'ok');
+    });
+  }
+
+  /** Libellé de série en texte brut, pour un message. */
+  function setLabelPlain(st, ex) {
+    if (ex.bw && !st.w) return st.r + ' reps';
+    if (ex.bw) return '+' + num(st.w) + ' kg x ' + st.r;
+    return num(st.w) + ' kg x ' + st.r;
   }
 
   function finishSession() {
     if (!ST.cur) return;
     if (!ST.cur.s.length) {
-      if (!confirm('Aucune série enregistrée. Abandonner cette séance ?')) return;
-      ST.cur = null; restStop(); wakeLock(false); save(true); render();
+      askDialog({
+        title: 'Abandonner la séance ?',
+        text: 'Aucune série n’a été enregistrée. Rien ne sera conservé.',
+        ok: 'Abandonner', danger: true
+      }, function () {
+        ST.cur = null; UI.act = null;
+        restStop(); wakeLock(false); save(true); render();
+      });
       return;
     }
     var st = E.sessionStats(Object.assign({}, ST.cur, { t1: Date.now() }), IX, bwNow());
-    if (!confirm('Terminer la séance ?\n\n' + st.sets + ' séries · ' + E.fmtVol(st.vol) +
-      ' · ' + E.fmtDur(Date.now() - ST.cur.t0))) return;
-    ST.cur.t1 = Date.now();
-    ST.ses.push(ST.cur);
-    ST.ses.sort(function (a, b) { return (a.t0 || 0) - (b.t0 || 0); });
-    ST.cur = null;
-    UI.act = null;
-    restStop(); wakeLock(false);
-    save(true); render();
-    toast('💪 Séance enregistrée');
+    askDialog({
+      title: 'Terminer la séance ?',
+      text: st.sets + ' séries · ' + E.fmtVol(st.vol) + ' · ' + E.fmtDur(Date.now() - ST.cur.t0),
+      ok: 'Terminer'
+    }, function () {
+      if (!ST.cur) return;
+      ST.cur.t1 = Date.now();
+      ST.ses.push(ST.cur);
+      ST.ses.sort(function (a, b) { return (a.t0 || 0) - (b.t0 || 0); });
+      ST.cur = null;
+      UI.act = null;
+      restStop(); wakeLock(false);
+      save(true); render();
+      toast('Séance enregistrée', 'ok');
+    });
   }
 
   /* ================================================================== */
@@ -347,8 +450,9 @@
   function render() {
     reindex();
     var st = E.weekStreak(ST.ses, todayStr());
-    $('streak').textContent = st > 0 ? '🔥 ' + st + ' sem.' : '';
+    $('streak').innerHTML = st > 0 ? ico('flame', 14) + '<span>' + st + ' sem.</span>' : '';
     $('streak').style.display = st > 0 ? '' : 'none';
+    $('streak').title = st > 0 ? st + ' semaine' + (st > 1 ? 's' : '') + ' d\u2019affil\u00e9e avec au moins une s\u00e9ance' : '';
 
     var nav = $('nav').children, i;
     for (i = 0; i < nav.length; i++) nav[i].className = nav[i].dataset.tab === UI.tab ? 'on' : '';
@@ -360,6 +464,7 @@
 
     if (UI.tab === 'pro') drawCharts();
     if (UI.tab === 'ses' && ST.cur) tickSessionClock();
+    syncAddState();
   }
 
   /* ================================================================== */
@@ -383,7 +488,7 @@
       kpi(cur ? E.fmtVol(cur.vol) : '0 kg', 'tonnage') +
       '</div></div>';
 
-    h += '<button class="btn pri big" data-act="new-empty">➕ Nouvelle séance</button>';
+    h += '<button class="btn pri big" data-act="new-empty">' + ico('plus', 22) + 'Nouvelle séance</button>';
 
     // Reprise rapide : les 3 dernières séances distinctes par composition.
     var seen = {}, quick = [], i, ses, key;
@@ -395,20 +500,20 @@
       quick.push(ses);
     }
     if (quick.length) {
-      h += '<div class="card" style="margin-top:12px"><h2>Refaire une séance</h2>';
+      h += '<div class="card" style="margin-top:var(--s3)"><h2>Refaire une séance</h2>';
       for (i = 0; i < quick.length; i++) {
         var exs = sessionExercises(quick[i]);
-        h += '<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px;height:auto;padding:12px 14px;text-align:left" data-act="repeat" data-id="' + esc(quick[i].id) + '">' +
-          '<span class="grow" style="text-align:left">' +
-          '<span style="font-weight:700">' + esc(quick[i].n) + '</span><br>' +
-          '<span class="tiny muted ellip" style="display:block">' + esc(relDate(quick[i].d)) + ' · ' +
-          exs.slice(0, 3).map(function (x) { return exName(x); }).join(', ') +
-          (exs.length > 3 ? ' +' + (exs.length - 3) : '') + '</span></span>' +
-          '<span style="color:var(--acc);font-size:20px">↻</span></button>';
+        h += '<button class="btn cardbtn" data-act="repeat" data-id="' + esc(quick[i].id) + '">' +
+          '<span class="grow">' +
+          '<span class="t1">' + esc(quick[i].n) + '</span>' +
+          '<span class="t2 ellip">' + esc(relDate(quick[i].d)) + ' · ' +
+          esc(exs.slice(0, 3).map(function (x) { return exName(x); }).join(', ') +
+            (exs.length > 3 ? ' +' + (exs.length - 3) : '')) + '</span></span>' +
+          '<span class="acc">' + ico('repeat', 20) + '</span></button>';
       }
       h += '</div>';
     } else {
-      h += '<div class="empty"><div class="big">🏋️</div>' +
+      h += '<div class="empty"><div class="big">' + ico('dumbbell', 44) + '</div>' +
         'Première séance ? Lance-toi : ajoute un exercice, tape ta charge et tes reps, ' +
         'et Forge se souvient de tout pour la fois suivante.</div>';
     }
@@ -431,16 +536,16 @@
       '<button class="btn sm pri" data-act="finish">Terminer</button>' +
       '</div>';
 
-    h += '<div class="row small muted" style="margin:-4px 2px 12px">' +
-      '<span>' + st.sets + ' séries</span><span>·</span>' +
+    h += '<div class="sesline">' +
+      '<span>' + st.sets + ' série' + (st.sets > 1 ? 's' : '') + '</span><span>·</span>' +
       '<span>' + E.fmtVol(st.vol) + '</span><span>·</span>' +
       '<span>' + st.reps + ' reps</span></div>';
 
     var exs = sessionExercises(ses), i;
     for (i = 0; i < exs.length; i++) h += exBlock(ses, exs[i]);
 
-    h += '<button class="btn big" data-act="pick">➕ Ajouter un exercice</button>';
-    h += '<div style="height:80px"></div>';
+    h += '<button class="btn big" data-act="pick">' + ico('plus', 22) + 'Ajouter un exercice</button>';
+    h += '<div class="tail"></div>';
     return h;
   }
 
@@ -456,7 +561,7 @@
       '<span class="sub">' + esc(gName(ex.g)) + ' · ' + esc(CAT.EQUIP[ex.eq] || '') +
       (mine.length ? ' · ' + mine.length + ' série' + (mine.length > 1 ? 's' : '') : '') +
       '</span></span>' +
-      '<span style="color:var(--fg3);font-size:18px">' + (active ? '▾' : '▸') + '</span></button>';
+      '<span class="chev">' + ico(active ? 'chevronDown' : 'chevronRight', 20) + '</span></button>';
 
     h += '<div class="body">';
 
@@ -465,12 +570,12 @@
       s = mine[i].s;
       if (!s.u) n++;
       h += '<div class="setrow' + (s.u ? ' wu' : '') + '">' +
-        '<span class="i">' + (s.u ? '↑' : n) + '</span>' +
+        '<span class="i">' + (s.u ? ico('flame', 14) : n) + '</span>' +
         '<button class="grow" style="text-align:left" data-act="edit" data-ix="' + mine[i].ix + '">' +
         '<span class="v">' + setLabel(s, ex) + '</span>' +
         (s.e ? ' <span class="tiny muted">RPE ' + s.e + '</span>' : '') +
         '</button>' +
-        '<button class="x" data-act="del" data-ix="' + mine[i].ix + '" aria-label="Supprimer">✕</button>' +
+        '<button class="x" data-act="del" data-ix="' + mine[i].ix + '" aria-label="Supprimer la série">' + ico('trash', 18) + '</button>' +
         '</div>';
     }
 
@@ -481,7 +586,7 @@
           lp.sets.map(function (x) { return num(x.w) + '×' + x.r; }).join(', ') + '</div>';
       }
       h += pad(ex);
-      if (ST.set.cues && ex.c) h += '<div class="cue">💡 ' + esc(ex.c) + '</div>';
+      if (ST.set.cues && ex.c) h += '<div class="cue">' + ico('bulb', 16) + '<span>' + esc(ex.c) + '</span></div>';
     }
 
     h += '</div></div>';
@@ -500,9 +605,10 @@
 
     h += '<div class="stepper">' +
       '<div class="lab">' + (ex.bw ? 'Lest' : 'Charge') + '</div>' +
-      '<button class="mn" data-act="w-" data-step="' + step + '">−</button>' +
-      '<input class="val" id="padW" type="number" inputmode="decimal" step="0.25" value="' + dec(UI.w) + '">' +
-      '<button class="pl" data-act="w+" data-step="' + step + '">+</button>' +
+      '<button class="mn" data-act="w-" data-step="' + step + '" aria-label="Diminuer la charge">' + ico('minus') + '</button>' +
+      '<input class="val" id="padW" type="number" inputmode="decimal" step="0.25" enterkeyhint="done" ' +
+      'aria-label="Charge en kilos" value="' + dec(UI.w) + '">' +
+      '<button class="pl" data-act="w+" data-step="' + step + '" aria-label="Augmenter la charge">' + ico('plus') + '</button>' +
       '</div>';
 
     if (ex.bar) h += '<div class="plates" id="padPlates">' + platesLine(UI.w) + '</div>';
@@ -512,9 +618,10 @@
 
     h += '<div class="stepper">' +
       '<div class="lab">Reps</div>' +
-      '<button class="mn" data-act="r-">−</button>' +
-      '<input class="val" id="padR" type="number" inputmode="numeric" step="1" value="' + (UI.r | 0) + '">' +
-      '<button class="pl" data-act="r+">+</button>' +
+      '<button class="mn" data-act="r-" aria-label="Une répétition de moins">' + ico('minus') + '</button>' +
+      '<input class="val" id="padR" type="number" inputmode="numeric" step="1" enterkeyhint="done" ' +
+      'aria-label="Nombre de répétitions" value="' + (UI.r | 0) + '">' +
+      '<button class="pl" data-act="r+" aria-label="Une répétition de plus">' + ico('plus') + '</button>' +
       '</div>';
 
     if (ST.set.rpe) {
@@ -525,16 +632,33 @@
       h += '</div>';
     }
 
-    h += '<div class="row" style="margin-bottom:10px">' +
-      '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu">🔥 Échauffement</button>' +
+    h += '<div class="row wrap" style="margin-bottom:var(--s3)">' +
+      '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu" aria-pressed="' + (UI.wu ? 'true' : 'false') + '">' +
+      ico('flame', 17) + 'Échauffement</button>' +
+      '<button class="chip" data-act="rest-now">' + ico('timer', 17) + 'Repos</button>' +
+      '<button class="chip" data-act="ex-del" data-id="' + esc(ex.id) + '">' + ico('trash', 17) + 'Retirer</button>' +
       (UI.edit >= 0 ? '<span class="grow"></span><button class="chip" data-act="cancel-edit">Annuler la modif</button>' : '') +
       '</div>';
 
-    h += '<button class="btn pri big" data-act="add">' +
-      (UI.edit >= 0 ? '✓ Enregistrer la modification' : '✓ Valider la série') + '</button>';
+    h += '<button class="btn pri big" data-act="add"' + ((UI.r | 0) > 0 ? '' : ' disabled') + '>' +
+      ico('check', 22) + (UI.edit >= 0 ? 'Enregistrer la modification' : 'Valider la série') + '</button>';
 
     h += '</div>';
     return h;
+  }
+
+  /**
+   * Le pavé de saisie descend d'une ligne à chaque série validée : au bout de
+   * quatre séries le bouton passait sous le chrono de repos et la barre de
+   * navigation. On le ramène dans la zone visible après chaque ajout.
+   */
+  function keepPadVisible() {
+    var b = document.querySelector('[data-act="add"]');
+    if (!b) return;
+    var basse = (document.body.classList.contains('resting') ? 62 : 0) + 74;
+    var r = b.getBoundingClientRect();
+    var deborde = r.bottom - (window.innerHeight - basse);
+    if (deborde > 0) window.scrollBy({ top: deborde + 12, behavior: 'smooth' });
   }
 
   function minPlate() {
@@ -548,7 +672,7 @@
     if (Math.abs(target - ST.set.bar) < 0.001) return 'barre à vide (' + num(ST.set.bar) + ' kg)';
     if (!p.ok) {
       var near = E.nearestLoadable(target, ST.set.bar, ST.set.plates);
-      return '<span class="warnc">⚠ non chargeable — le plus proche : <b>' + num(near) + ' kg</b></span>';
+      return '<span class="warnc">' + ico('alert', 14) + ' non chargeable — le plus proche : <b>' + num(near) + ' kg</b></span>';
     }
     if (!p.side.length) return 'barre seule';
     return 'par côté : ' + p.side.map(function (s) {
@@ -576,7 +700,7 @@
 
   function viewHistory() {
     if (!ST.ses.length && !ST.cur) {
-      return '<div class="empty"><div class="big">📓</div>Aucune séance enregistrée pour l’instant.</div>';
+      return '<div class="empty"><div class="big">' + ico('log', 44) + '</div>Aucune séance enregistrée pour l’instant.</div>';
     }
     var h = '', i, ses, st, lastMonth = '';
 
@@ -593,8 +717,7 @@
       if (m !== lastMonth) {
         lastMonth = m;
         var p = m.split('-');
-        h += '<h2 class="muted small" style="margin:18px 2px 8px;text-transform:uppercase;letter-spacing:.06em">' +
-          esc(MONTHS[+p[1] - 1] + ' ' + p[0]) + '</h2>';
+        h += '<h2 class="mhead">' + esc(MONTHS[+p[1] - 1] + ' ' + p[0]) + '</h2>';
       }
       st = E.sessionStats(ses, IX, bwNow(ses.d));
       h += '<button class="card seslink" data-act="sesdet" data-id="' + esc(ses.id) + '">' +
@@ -625,14 +748,14 @@
     for (i = 0; i < exs.length; i++) {
       var ex = exOf(exs[i]);
       var mine = setsOf(ses, exs[i]);
-      h += '<div class="card"><div class="row" style="margin-bottom:6px">' +
+      h += '<div class="card"><div class="row" style="margin-bottom:var(--s2)">' +
         '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
         '<b class="grow">' + esc(ex.n) + '</b></div>';
       var n = 0;
       mine.forEach(function (m) {
         if (!m.s.u) n++;
         h += '<div class="setrow' + (m.s.u ? ' wu' : '') + '">' +
-          '<span class="i">' + (m.s.u ? '↑' : n) + '</span>' +
+          '<span class="i">' + (m.s.u ? ico('flame', 14) : n) + '</span>' +
           '<span class="grow v">' + setLabel(m.s, ex) + '</span>' +
           (m.s.e ? '<span class="tiny muted">RPE ' + m.s.e + '</span>' : '') +
           '</div>';
@@ -643,9 +766,10 @@
     h += '<div class="card"><label class="small muted">Note de séance</label>' +
       '<textarea id="sesNote" rows="3" placeholder="Sensations, douleurs, remarques…">' + esc(ses.note || '') + '</textarea></div>';
 
-    h += '<button class="btn big" data-act="repeat" data-id="' + esc(ses.id) + '">↻ Refaire cette séance</button>' +
-      '<div style="height:10px"></div>' +
-      '<button class="btn big danger" data-act="delses" data-id="' + esc(ses.id) + '">Supprimer cette séance</button>';
+    h += '<button class="btn big" data-act="repeat" data-id="' + esc(ses.id) + '">' + ico('repeat', 21) + 'Refaire cette séance</button>' +
+      '<div class="sp-2"></div>' +
+      '<button class="btn big danger" data-act="delses" data-id="' + esc(ses.id) + '">' + ico('trash', 20) + 'Supprimer cette séance</button>' +
+      '<div class="tail"></div>';
 
     openSheet(esc(ses.n) + ' — ' + esc(longDate(ses.d)), h, function () {
       var t = $('sesNote');
@@ -659,7 +783,7 @@
 
   function viewProgress() {
     if (!ST.ses.length) {
-      return '<div class="empty"><div class="big">📈</div>Les courbes apparaîtront après ta première séance terminée.</div>';
+      return '<div class="empty"><div class="big">' + ico('trend', 44) + '</div>Les courbes apparaîtront après ta première séance terminée.</div>';
     }
     var h = '';
     var wk = E.weekSeries(ST.ses, IX, bwNow());
@@ -677,7 +801,7 @@
       kpi(cw ? cw.sets : 0, 'séries') +
       kpi(E.fmtVol(cv), 'tonnage', dv === null ? null : { up: dv >= 0, txt: (dv >= 0 ? '+' : '') + dv + '%' }) +
       '</div>' +
-      '<div class="small muted" style="margin-top:10px">Semaine précédente : ' + E.fmtVol(pv) + '</div>' +
+      '<div class="small muted" style="margin-top:var(--s3)">Semaine précédente : ' + E.fmtVol(pv) + '</div>' +
       '</div>';
 
     h += '<div class="card"><h2>Tonnage par semaine</h2><div id="chWeek"></div></div>';
@@ -689,12 +813,12 @@
     if (!UI.proEx || ids.indexOf(UI.proEx) < 0) UI.proEx = mostUsedExercise(ids);
 
     h += '<div class="card"><h2>Progression</h2>' +
-      '<select id="proSel" style="margin-bottom:12px">' +
+      '<select id="proSel" style="margin-bottom:var(--s3)">' +
       ids.map(function (id) {
         return '<option value="' + esc(id) + '"' + (id === UI.proEx ? ' selected' : '') + '>' + esc(exName(id)) + '</option>';
       }).join('') + '</select>' +
       '<div id="chEx"></div>' +
-      '<div id="exNote" class="small muted" style="margin-top:8px"></div>' +
+      '<div id="exNote" class="small muted" style="margin-top:var(--s2)"></div>' +
       '</div>';
 
     // Répartition par groupe (4 semaines)
@@ -709,7 +833,7 @@
           '<span class="tr"><span class="fl" style="width:' + Math.max(2, (gv[g] / max) * 100).toFixed(1) + '%;background:' + gColor(g) + '"></span></span>' +
           '<span class="vl">' + E.fmtVol(gv[g]) + '</span></div>';
       });
-      h += '<div class="tiny muted" style="margin-top:8px">Le groupe principal compte pour 1, les groupes secondaires pour 0,5.</div></div>';
+      h += '<div class="tiny muted" style="margin-top:var(--s2)">Le groupe principal compte pour 1, les groupes secondaires pour 0,5.</div></div>';
     }
 
     // Records
@@ -717,11 +841,11 @@
     var byDate = ids.slice().sort(function (a, b) { return best[b].d < best[a].d ? -1 : 1; });
     byDate.forEach(function (id) {
       var b = best[id];
-      h += '<div class="row" style="padding:9px 0;border-top:1px solid var(--line)">' +
+      h += '<div class="rec">' +
         '<span class="gdot" style="background:' + gColor(exOf(id).g) + '"></span>' +
         '<span class="grow ellip">' + esc(exName(id)) + '</span>' +
-        '<span style="font-weight:700;font-variant-numeric:tabular-nums">' + num(b.w) + '×' + b.r + '</span>' +
-        '<span class="tiny muted" style="width:62px;text-align:right">1RM ' + num(b.e1rm) + '</span>' +
+        '<span class="w">' + num(b.w) + ' × ' + b.r + '</span>' +
+        '<span class="e">1RM ' + num(b.e1rm) + '</span>' +
         '</div>';
     });
     h += '</div>';
@@ -732,15 +856,15 @@
       '<button class="btn" data-act="bwadd">Noter</button></div>';
     if (ST.bw.length) {
       var sorted = ST.bw.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
-      h += '<div class="small muted" style="margin-top:10px">' +
+      h += '<div class="small muted" style="margin-top:var(--s3)">' +
         sorted.slice(0, 5).map(function (b) { return esc(relDate(b.d)) + ' : <b>' + num(b.w) + ' kg</b>'; }).join(' · ') +
         '</div>';
     } else {
-      h += '<div class="tiny muted" style="margin-top:8px">Sert à compter les tractions et les pompes dans le tonnage.</div>';
+      h += '<div class="tiny muted" style="margin-top:var(--s2)">Sert à compter les tractions et les pompes dans le tonnage.</div>';
     }
     h += '</div>';
 
-    h += '<div style="height:20px"></div>';
+    h += '<div class="tail"></div>';
     return h;
   }
 
@@ -756,11 +880,14 @@
 
   /* --------------------------- Graphiques SVG ----------------------- */
 
+  /** "2026-08-10" -> "10/08" : une date se situe, un numéro de semaine ISO non. */
+  function dayMonth(ds) { return ds.slice(8) + '/' + ds.slice(5, 7); }
+
   function drawCharts() {
     var wk = E.weekSeries(ST.ses, IX, bwNow()).slice(-12);
     var box = $('chWeek');
     if (box) box.innerHTML = barChart(wk.map(function (w) {
-      return { v: w.vol, l: 'S' + w.k.slice(-2) };
+      return { v: w.vol, l: dayMonth(E.weekStart(w.k)) };
     }), E.weekKey(todayStr()) === (wk.length ? wk[wk.length - 1].k : ''));
 
     var ex = $('chEx');
@@ -780,44 +907,66 @@
     }
   }
 
+  /**
+   * Histogramme du tonnage hebdomadaire.
+   * L'échelle haute est une valeur ronde RÉELLE (E.niceMax), imprimée sur le
+   * graphique : une barre sans repère chiffré ne dit rien.
+   */
   function barChart(data, lastIsCurrent) {
     if (!data.length) return '<div class="tiny muted">Pas encore de données.</div>';
-    var W = 320, H = 130, pb = 18, pl = 2;
-    var max = Math.max.apply(null, data.map(function (d) { return d.v; })) || 1;
+    var W = 320, H = 138, pb = 20, pt = 14, pl = 2;
+    var reel = Math.max.apply(null, data.map(function (d) { return d.v; })) || 0;
+    var haut = E.niceMax(reel);
     var slot = (W - pl * 2) / data.length;
     var bw = Math.min(slot * 0.68, 34);   // sans plafond, une seule semaine remplit tout le cadre
-    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Tonnage par semaine">';
+    var ih = H - pb - pt;
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+      'aria-label="Tonnage par semaine, maximum ' + esc(E.fmtVol(haut)) + '">';
+    s += '<line class="grid" x1="0" y1="' + pt + '" x2="' + W + '" y2="' + pt + '" stroke-dasharray="3 3"/>';
     s += '<line class="grid" x1="0" y1="' + (H - pb) + '" x2="' + W + '" y2="' + (H - pb) + '"/>';
+    s += '<text class="val" x="2" y="' + (pt - 4) + '">' + esc(E.fmtVol(haut)) + '</text>';
     data.forEach(function (d, i) {
-      var hgt = Math.max(1, ((H - pb - 8) * d.v) / max);
-      var x = pl + i * slot + (slot - bw) / 2, w = bw;
+      var hgt = Math.max(1, (ih * d.v) / haut);
+      var x = pl + i * slot + (slot - bw) / 2;
       s += '<rect class="bar' + (lastIsCurrent && i === data.length - 1 ? ' dim' : '') + '" x="' + x.toFixed(1) +
-        '" y="' + (H - pb - hgt).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + hgt.toFixed(1) + '" rx="2"/>';
-      if (data.length <= 8 || i % 2 === 0) {
-        s += '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(d.l) + '</text>';
+        '" y="' + (H - pb - hgt).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hgt.toFixed(1) + '" rx="2"/>';
+      if (data.length <= 7 || i % 2 === data.length % 2) {
+        s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(d.l) + '</text>';
       }
     });
     s += '</svg>';
     return s;
   }
 
+  /**
+   * Courbe du 1RM estimé.
+   * Les deux graduations affichées sont les BORNES RÉELLES de l'axe, calées sur
+   * une grille ronde. L'ancienne version imprimait un maximum gonflé de 18 %
+   * pour aérer le tracé : le chiffre lu ne correspondait à aucune séance.
+   */
   function lineChart(data) {
     if (data.length < 2) {
       return '<div class="tiny muted">Au moins deux séances sont nécessaires pour tracer une courbe.</div>';
     }
-    var W = 320, H = 150, pb = 18, pt = 10, pl = 6, pr = 6;
+    var W = 320, H = 154, pb = 20, pt = 14, pl = 6, pr = 6;
     var vals = data.map(function (d) { return d.v; });
-    var mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
-    var span = (mx - mn) || 1;
-    mn = Math.max(0, mn - span * 0.18); mx = mx + span * 0.18;
+    var vmax = Math.max.apply(null, vals), vmin = Math.min.apply(null, vals);
+
+    var haut = E.niceMax(vmax);
+    var pas = haut / 8;
+    var bas = Math.max(0, Math.floor(vmin / pas) * pas);
+    if (haut - bas < pas) bas = Math.max(0, haut - pas);   // série plate : garder de la hauteur
+
     var iw = W - pl - pr, ih = H - pb - pt;
     var X = function (i) { return pl + (iw * i) / (data.length - 1); };
-    var Y = function (v) { return pt + ih - (ih * (v - mn)) / (mx - mn); };
+    var Y = function (v) { return pt + ih - (ih * (v - bas)) / (haut - bas); };
 
     var d = data.map(function (p, i) { return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ');
     var area = d + ' L' + X(data.length - 1).toFixed(1) + ' ' + (pt + ih) + ' L' + X(0).toFixed(1) + ' ' + (pt + ih) + ' Z';
 
-    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Progression du 1RM estimé">';
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+      'aria-label="1RM estimé, de ' + num(E.r1(bas)) + ' à ' + num(E.r1(haut)) + ' kilos">';
+    s += '<line class="grid" x1="0" y1="' + pt + '" x2="' + W + '" y2="' + pt + '" stroke-dasharray="3 3"/>';
     s += '<line class="grid" x1="0" y1="' + (pt + ih) + '" x2="' + W + '" y2="' + (pt + ih) + '"/>';
     s += '<path class="ar" d="' + area + '"/><path class="ln" d="' + d + '"/>';
     data.forEach(function (p, i) {
@@ -825,9 +974,10 @@
         s += '<circle class="pt" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="3"/>';
       }
     });
+    s += '<text class="val" x="2" y="' + (pt - 4) + '">' + num(E.r1(haut)) + ' kg</text>';
+    s += '<text class="val" x="2" y="' + (pt + ih - 4) + '">' + num(E.r1(bas)) + ' kg</text>';
     s += '<text x="' + pl + '" y="' + (H - 5) + '">' + esc(data[0].l) + '</text>';
     s += '<text x="' + (W - pr) + '" y="' + (H - 5) + '" text-anchor="end">' + esc(data[data.length - 1].l) + '</text>';
-    s += '<text x="' + pl + '" y="' + (pt + 2) + '">' + num(Math.round(mx)) + ' kg</text>';
     s += '</svg>';
     return s;
   }
@@ -836,13 +986,72 @@
   /* Feuilles (plein écran)                                              */
   /* ================================================================== */
 
+
+  /* ================================================================== */
+  /* Boîtes de dialogue de l'application                                 */
+  /*                                                                     */
+  /* Remplacent confirm()/prompt()/alert(). Sur Android, les dialogues    */
+  /* natifs affichent l'origine du site en en-tête et sortent l'app       */
+  /* installée de son plein écran — en plus d'être impossibles à styler.  */
+  /* ================================================================== */
+
+  var dlgOk = null, dlgFocusBack = null;
+
+  /**
+   * o = { title, text, ok, cancel, danger, input:{label, value, placeholder, type, confirmWord} }
+   * onOk reçoit la valeur du champ si `input` est fourni.
+   */
+  function askDialog(o, onOk) {
+    if (!$('dlg').innerHTML) pushLayer();
+    dlgOk = onOk || null;
+    dlgFocusBack = document.activeElement;
+    var h = '<div class="ovl" data-act="dlg-back">' +
+      '<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle">' +
+      '<h3 id="dlgTitle">' + esc(o.title) + '</h3>' +
+      (o.text ? '<p>' + esc(o.text) + '</p>' : '');
+    if (o.input) {
+      h += '<label class="dlab" for="dlgIn">' + esc(o.input.label || '') + '</label>' +
+        '<input id="dlgIn" type="' + (o.input.type || 'text') + '" ' +
+        'value="' + esc(o.input.value || '') + '" ' +
+        'placeholder="' + esc(o.input.placeholder || '') + '" ' +
+        'autocomplete="off" enterkeyhint="done">';
+    }
+    h += '<div class="dacts">' +
+      '<button class="btn" data-act="dlg-no">' + esc(o.cancel || 'Annuler') + '</button>' +
+      '<button class="btn ' + (o.danger ? 'dgr' : 'pri') + '" data-act="dlg-yes">' + esc(o.ok || 'Confirmer') + '</button>' +
+      '</div></div></div>';
+    $('dlg').innerHTML = h;
+    dlgWord = o.input && o.input.confirmWord ? o.input.confirmWord : null;
+    var f = $('dlgIn');
+    if (f) { f.focus(); f.select(); } else {
+      var b = $('dlg').querySelector('[data-act="dlg-yes"]');
+      if (b) b.focus();
+    }
+  }
+
+  var dlgWord = null;
+
+  function closeDialog(run) {
+    var cb = dlgOk, f = $('dlgIn'), val = f ? f.value : null;
+    dlgOk = null;
+    $('dlg').innerHTML = '';
+    if (dlgFocusBack && dlgFocusBack.focus) { try { dlgFocusBack.focus(); } catch (e) { } }
+    dlgFocusBack = null;
+    var word = dlgWord; dlgWord = null;
+    if (run && cb) {
+      if (word && String(val).trim().toUpperCase() !== word) { toast('Confirmation incorrecte', 'alert'); return; }
+      cb(val);
+    }
+  }
+
   var sheetClose = null;
 
   function openSheet(title, html, onClose) {
+    if (!$('sheet').innerHTML) pushLayer();
     sheetClose = onClose || null;
     $('sheet').innerHTML =
       '<div class="sheet"><div class="shd">' +
-      '<button class="icobtn" data-act="closesheet" aria-label="Fermer">✕</button>' +
+      '<button class="icobtn" data-act="closesheet" aria-label="Fermer">' + ico('close', 20) + '</button>' +
       '<h2 class="ellip">' + title + '</h2></div>' +
       '<div class="sbody">' + html + '</div></div>';
   }
@@ -866,7 +1075,7 @@
   function renderPicker() {
     var groups = Object.keys(CAT.GROUPS);
     var h = '<input id="pickIn" placeholder="Rechercher un exercice…" autocomplete="off" value="' + esc(pickQ) + '">';
-    h += '<div class="row wrap" style="margin:12px 0">' +
+    h += '<div class="row wrap" style="margin:var(--s3) 0">' +
       '<button class="chip' + (pickG ? '' : ' on') + '" data-act="pg" data-g="">Tous</button>' +
       groups.map(function (g) {
         return '<button class="chip' + (pickG === g ? ' on' : '') + '" data-act="pg" data-g="' + esc(g) + '">' +
@@ -912,9 +1121,9 @@
     });
     h += '</div>';
 
-    h += '<div style="height:14px"></div>' +
-      '<button class="btn" data-act="newex" style="width:100%">➕ Créer un exercice perso</button>' +
-      '<div style="height:30px"></div>';
+    h += '<div style="height:var(--s4)"></div>' +
+      '<button class="btn big" data-act="newex">' + ico('plus', 20) + 'Créer un exercice perso</button>' +
+      '<div class="sp-6"></div>';
 
     openSheet('Ajouter un exercice', h);
     var inp = $('pickIn');
@@ -940,18 +1149,46 @@
     render();
   }
 
+  var NEWEX = { g: 'pec', eq: 'db', n: '' };
+
+  /** Formulaire d'exercice personnel — remplace deux prompt() successifs. */
   function newCustomExercise() {
-    var n = prompt('Nom de l’exercice');
-    if (!n || !n.trim()) return;
-    var gk = Object.keys(CAT.GROUPS);
-    var g = prompt('Groupe musculaire ?\n' + gk.map(function (k, i) { return (i + 1) + '. ' + CAT.GROUPS[k].n; }).join('\n'), '1');
-    var gi = parseInt(g, 10) - 1;
-    var grp = gk[gi >= 0 && gi < gk.length ? gi : 0];
+    var h = '<div class="field"><label for="nxName">Nom de l’exercice</label>' +
+      '<input id="nxName" value="' + esc(NEWEX.n) + '" placeholder="Ex. Rowing menton" autocomplete="off" enterkeyhint="done"></div>' +
+      '<div class="field"><label>Groupe musculaire</label><div class="row wrap">' +
+      Object.keys(CAT.GROUPS).map(function (g) {
+        return '<button class="chip' + (NEWEX.g === g ? ' on' : '') + '" data-act="nx-g" data-g="' + esc(g) + '">' +
+          '<span class="gdot" style="background:' + gColor(g) + '"></span>' + esc(gName(g)) + '</button>';
+      }).join('') + '</div></div>' +
+      '<div class="field"><label>Équipement</label><div class="row wrap">' +
+      Object.keys(CAT.EQUIP).map(function (e2) {
+        return '<button class="chip' + (NEWEX.eq === e2 ? ' on' : '') + '" data-act="nx-eq" data-e="' + esc(e2) + '">' +
+          esc(CAT.EQUIP[e2]) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="hint">« Barre » active le calcul des disques. « Poids du corps » compte ton poids dans le tonnage.</div></div>' +
+      '<button class="btn pri big" data-act="nx-save">' + ico('check', 21) + 'Créer l’exercice</button>';
+    openSheet('Nouvel exercice', h);
+    var f = $('nxName'); if (f) f.focus();
+  }
+
+  function readNewEx() { var f = $('nxName'); if (f) NEWEX.n = f.value; }
+
+  function saveCustomExercise() {
+    readNewEx();
+    var f = $('nxName');
+    var nm = NEWEX.n.trim();
+    if (!nm) { toast('Donne un nom à l’exercice', 'alert'); if (f) f.focus(); return; }
     var id = 'perso-' + Date.now().toString(36);
-    ST.ex[id] = { id: id, n: n.trim(), g: grp, eq: 'db', perso: 1 };
+    ST.ex[id] = {
+      id: id, n: nm, g: NEWEX.g, eq: NEWEX.eq, perso: 1,
+      bar: NEWEX.eq === 'bb' ? 1 : 0,
+      bw: NEWEX.eq === 'bw' ? 1 : 0
+    };
+    NEWEX.n = '';
     save(true);
     reindex();
     addExerciseToSession(id);
+    toast('Exercice créé', 'ok');
   }
 
   /* ================================================================== */
@@ -999,20 +1236,22 @@
       '</div>';
 
     h += '<div class="card"><h2>Données</h2>' +
-      '<div class="small muted" style="margin-bottom:12px">Tout est stocké dans ce téléphone, et nulle part ailleurs. ' +
+      '<div class="small muted" style="margin-bottom:var(--s3)">Tout est stocké dans ce téléphone, et nulle part ailleurs. ' +
       '<b>Exporte régulièrement</b> : effacer les données du site effacerait toute la progression.</div>' +
-      '<button class="btn big" data-act="export">⬇️ Exporter (fichier JSON)</button><div style="height:8px"></div>' +
-      '<button class="btn big" data-act="import">⬆️ Importer une sauvegarde</button>' +
+      '<button class="btn big" data-act="export">' + ico('download', 21) + 'Exporter (fichier JSON)</button><div class="sp-2"></div>' +
+      '<button class="btn big" data-act="import">' + ico('upload', 21) + 'Importer une sauvegarde</button>' +
       '<input type="file" id="impFile" accept="application/json,.json" class="hide">' +
-      '<div class="hint" style="margin-top:10px">' + ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
-      ' · ' + Object.keys(ST.ex).length + ' exercice(s) perso · dernière sauvegarde : ce téléphone</div>' +
+      '<div class="hint">' + ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
+      ' enregistrée' + (ST.ses.length > 1 ? 's' : '') +
+      (Object.keys(ST.ex).length ? ' · ' + Object.keys(ST.ex).length + ' exercice' +
+        (Object.keys(ST.ex).length > 1 ? 's' : '') + ' perso' : '') + '</div>' +
       '</div>';
 
     h += '<div class="card"><h2>Zone rouge</h2>' +
       '<button class="btn big danger" data-act="wipe">Tout effacer</button>' +
-      '<div class="hint" style="margin-top:8px">Irréversible. Exporte d’abord.</div></div>';
+      '<div class="hint" style="margin-top:var(--s2)">Irréversible. Exporte d’abord.</div></div>';
 
-    h += '<div class="tiny muted center" style="padding:16px 0 30px">Forge · PWA hors-ligne · données locales</div>';
+    h += '<div class="tiny muted center" style="padding:var(--s4) 0 var(--s6)">Forge · PWA hors-ligne · données locales</div>';
 
     openSheet('Réglages', h, applySettings);
   }
@@ -1025,10 +1264,10 @@
 
   function plateEditor() {
     return (ST.set.plates || []).map(function (p, i) {
-      return '<div class="row" style="margin-bottom:6px">' +
-        '<span style="width:74px;font-variant-numeric:tabular-nums">' + num(p.w) + ' kg</span>' +
+      return '<div class="row" style="margin-bottom:var(--s2)">' +
+        '<span class="plw">' + num(p.w) + ' kg</span>' +
         '<button class="btn sm" data-act="pl-" data-i="' + i + '">−</button>' +
-        '<span style="width:74px;text-align:center">' + p.n + ' paire' + (p.n > 1 ? 's' : '') + '</span>' +
+        '<span class="pln">' + p.n + ' paire' + (p.n > 1 ? 's' : '') + '</span>' +
         '<button class="btn sm" data-act="pl+" data-i="' + i + '">+</button>' +
         '</div>';
     }).join('');
@@ -1077,16 +1316,23 @@
     var fr = new FileReader();
     fr.onload = function () {
       var data;
-      try { data = JSON.parse(fr.result); } catch (e) { toast('⚠️ Fichier illisible'); return; }
+      try { data = JSON.parse(fr.result); } catch (e) { toast('Fichier illisible', 'alert'); return; }
       var st = data && data.state ? data.state : data;
-      if (!st || !Array.isArray(st.ses)) { toast('⚠️ Ce n’est pas une sauvegarde Forge'); return; }
-      if (!confirm('Remplacer les données actuelles par cette sauvegarde ?\n\n' +
-        st.ses.length + ' séances dans le fichier, ' + ST.ses.length + ' actuellement.')) return;
-      localStorage.setItem(KEY, JSON.stringify(st));
-      ST = loadState();
-      reindex(); applyTheme();
-      closeSheet();
-      toast('Sauvegarde restaurée');
+      if (!st || !Array.isArray(st.ses)) { toast('Ce n’est pas une sauvegarde Forge', 'alert'); return; }
+      askDialog({
+        title: 'Restaurer cette sauvegarde ?',
+        text: 'Le fichier contient ' + st.ses.length + ' séance' + (st.ses.length > 1 ? 's' : '') +
+          '. Tes ' + ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
+          ' actuelle' + (ST.ses.length > 1 ? 's' : '') + ' seront remplacées.',
+        ok: 'Restaurer', danger: true
+      }, function () {
+        localStorage.setItem(KEY, JSON.stringify(st));
+        ST = loadState();
+        reindex(); applyTheme();
+        sheetClose = null;
+        closeSheet();
+        toast('Sauvegarde restaurée', 'ok');
+      });
     };
     fr.readAsText(file);
   }
@@ -1101,7 +1347,31 @@
     var a = t.dataset.act;
 
     /* --- chrono de repos --- */
-    if (a === 'rest-add') { rest.end += 30000; rest.total += 30; restTick(); return; }
+    if (a === 'undo') { var uf = undoFn; hideToast(); if (uf) uf(); return; }
+    if (a === 'rest-now') { restStart(ST.set.rest); return; }
+    if (a === 'ex-del') {
+      var xid = t.dataset.id;
+      if (!ST.cur) return;
+      var memoP = ST.cur.p.slice(), memoS = ST.cur.s.slice(), memoAct = UI.act;
+      ST.cur.p = ST.cur.p.filter(function (x) { return x !== xid; });
+      ST.cur.s = ST.cur.s.filter(function (x) { return x.x !== xid; });
+      UI.act = ST.cur.p.length ? ST.cur.p[ST.cur.p.length - 1] : null;
+      UI.edit = -1;
+      if (UI.act) prefill(UI.act);
+      save(true); render();
+      toast(exName(xid) + ' retiré', null, function () {
+        if (!ST.cur) return;
+        ST.cur.p = memoP; ST.cur.s = memoS; UI.act = memoAct;
+        save(true); render();
+        toast('Exercice rétabli', 'ok');
+      });
+      return;
+    }
+    if (a === 'rest-add') {
+      rest.end += 30000; rest.total += 30;
+      ST.rest = { end: rest.end, total: rest.total }; save();
+      restTick(); return;
+    }
     if (a === 'rest-skip') { restStop(); return; }
 
     /* --- navigation --- */
@@ -1114,16 +1384,31 @@
       var src = null, i;
       for (i = 0; i < ST.ses.length; i++) if (ST.ses[i].id === t.dataset.id) src = ST.ses[i];
       if (!src) return;
-      if (ST.cur && ST.cur.s.length && !confirm('Une séance est déjà en cours. La remplacer ?')) return;
-      newSession(sessionExercises(src), src.n);
-      closeSheet();
-      UI.tab = 'ses';
-      render();
+      var go = function () {
+        newSession(sessionExercises(src), src.n);
+        sheetClose = null; closeSheet();
+        UI.tab = 'ses';
+        render();
+      };
+      if (ST.cur && ST.cur.s.length) {
+        askDialog({
+          title: 'Une séance est déjà en cours',
+          text: 'Elle contient ' + ST.cur.s.length + ' série' + (ST.cur.s.length > 1 ? 's' : '') +
+            ' qui seront perdues si tu la remplaces.',
+          ok: 'Remplacer', danger: true
+        }, go);
+      } else go();
       return;
     }
     if (a === 'pick') { openPicker(); return; }
     if (a === 'pick-ex') { addExerciseToSession(t.dataset.id); return; }
     if (a === 'newex') { newCustomExercise(); return; }
+    if (a === 'nx-g') { readNewEx(); NEWEX.g = t.dataset.g; newCustomExercise(); return; }
+    if (a === 'nx-eq') { readNewEx(); NEWEX.eq = t.dataset.e; newCustomExercise(); return; }
+    if (a === 'nx-save') { saveCustomExercise(); return; }
+    if (a === 'dlg-yes') { closeDialog(true); return; }
+    if (a === 'dlg-no') { closeDialog(false); return; }
+    if (a === 'dlg-back') { if (ev.target === t) closeDialog(false); return; }
     if (a === 'pg') { pickG = t.dataset.g; renderPicker(); return; }
     if (a === 'focus') {
       var id = t.dataset.id;
@@ -1145,12 +1430,24 @@
     }
     if (a === 'r-' || a === 'r+') {
       readPad();
-      UI.r = Math.max(0, (UI.r | 0) + (a === 'r+' ? 1 : -1));
+      UI.r = Math.max(1, (UI.r | 0) + (a === 'r+' ? 1 : -1));
       syncPad();
       return;
     }
-    if (a === 'rpe') { readPad(); UI.e = UI.e === +t.dataset.v ? 0 : +t.dataset.v; render(); return; }
-    if (a === 'wu') { readPad(); UI.wu = UI.wu ? 0 : 1; render(); return; }
+    if (a === 'rpe') {
+      readPad();
+      UI.e = UI.e === +t.dataset.v ? 0 : +t.dataset.v;
+      var rb = document.querySelectorAll('[data-act="rpe"]'), ri;
+      for (ri = 0; ri < rb.length; ri++) rb[ri].className = (+rb[ri].dataset.v === UI.e) ? 'on' : '';
+      return;
+    }
+    if (a === 'wu') {
+      readPad();
+      UI.wu = UI.wu ? 0 : 1;
+      t.className = 'chip' + (UI.wu ? ' on' : '');
+      t.setAttribute('aria-pressed', UI.wu ? 'true' : 'false');
+      return;
+    }
     if (a === 'add') { readPad(); addSet(); return; }
     if (a === 'cancel-edit') { UI.edit = -1; prefill(UI.act); render(); return; }
     if (a === 'edit') {
@@ -1165,11 +1462,17 @@
     /* --- historique --- */
     if (a === 'sesdet') { sessionDetail(t.dataset.id); return; }
     if (a === 'delses') {
-      if (!confirm('Supprimer définitivement cette séance ?')) return;
-      ST.ses = ST.ses.filter(function (x) { return x.id !== t.dataset.id; });
-      sheetClose = null;
-      save(true); closeSheet();
-      toast('Séance supprimée');
+      var delId = t.dataset.id;
+      askDialog({
+        title: 'Supprimer cette séance ?',
+        text: 'Ses séries et sa contribution aux records disparaîtront définitivement.',
+        ok: 'Supprimer', danger: true
+      }, function () {
+        ST.ses = ST.ses.filter(function (x) { return x.id !== delId; });
+        sheetClose = null;
+        save(true); closeSheet();
+        toast('Séance supprimée', 'ok');
+      });
       return;
     }
 
@@ -1208,14 +1511,20 @@
     if (a === 'export') { doExport(); return; }
     if (a === 'import') { var f = $('impFile'); if (f) f.click(); return; }
     if (a === 'wipe') {
-      if (!confirm('Effacer TOUTES les données de Forge ?\n\nSéances, records, réglages. Cette action est irréversible.')) return;
-      if (!confirm('Vraiment sûr ? As-tu exporté une sauvegarde ?')) return;
-      localStorage.removeItem(KEY);
-      ST = loadState();
-      reindex(); applyTheme();
-      sheetClose = null;
-      closeSheet();
-      toast('Données effacées');
+      askDialog({
+        title: 'Tout effacer ?',
+        text: ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
+          ', les records et les réglages seront détruits. Il n’existe aucune autre copie que celle de ce téléphone.',
+        ok: 'Tout effacer', danger: true,
+        input: { label: 'Tape EFFACER pour confirmer', placeholder: 'EFFACER', confirmWord: 'EFFACER' }
+      }, function () {
+        localStorage.removeItem(KEY);
+        ST = loadState();
+        reindex(); applyTheme();
+        sheetClose = null;
+        closeSheet();
+        toast('Données effacées', 'ok');
+      });
       return;
     }
   });
@@ -1225,19 +1534,35 @@
     if (ev.target.id === 'proSel') { UI.proEx = ev.target.value; render(); }
   });
 
+  /* Un champ numérique pré-rempli doit être remplaçable d'une frappe : sans
+     sélection à la prise de focus, il faut effacer « 42.5 » chiffre par chiffre. */
+  document.addEventListener('focusin', function (ev) {
+    var id = ev.target && ev.target.id;
+    if (id === 'padW' || id === 'padR') { try { ev.target.select(); } catch (e) { } }
+  });
+
   document.addEventListener('input', function (ev) {
     if (ev.target.id === 'padW' || ev.target.id === 'padR') {
       readPad();
       var pl = $('padPlates');
       if (pl) pl.innerHTML = platesLine(UI.w);
+      syncAddState();
     }
   });
 
   /** Lit les champs du pavé sans redessiner (évite de voler le focus). */
   function readPad() {
     var w = $('padW'), r = $('padR');
-    if (w && w.value !== '') UI.w = Math.max(0, parseFloat(String(w.value).replace(',', '.')) || 0);
-    if (r && r.value !== '') UI.r = Math.max(0, parseInt(r.value, 10) || 0);
+    // Un champ vidé vaut 0, jamais « l'ancienne valeur » : sinon on enregistre
+    // en silence un chiffre différent de celui affiché.
+    if (w) UI.w = Math.max(0, parseFloat(String(w.value).replace(',', '.')) || 0);
+    if (r) UI.r = Math.max(0, parseInt(r.value, 10) || 0);
+  }
+
+  /** Le bouton Valider est désactivé tant que la saisie n'a pas de sens. */
+  function syncAddState() {
+    var b = document.querySelector('[data-act="add"]');
+    if (b) b.disabled = !((UI.r | 0) > 0);
   }
 
   /** Réécrit les champs du pavé sans redessiner toute la vue. */
@@ -1268,6 +1593,35 @@
 
   $('btnSet').addEventListener('click', openSettings);
 
+  /* Échap ferme la couche la plus haute ; Entrée valide un dialogue à champ. */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') {
+      if ($('dlg').innerHTML) { closeDialog(false); ev.preventDefault(); return; }
+      if ($('sheet').innerHTML) { closeSheet(); ev.preventDefault(); }
+      return;
+    }
+    if (ev.key === 'Enter' && ev.target && ev.target.id === 'dlgIn') {
+      closeDialog(true); ev.preventDefault();
+    }
+    if (ev.key === 'Enter' && ev.target && ev.target.id === 'nxName') {
+      saveCustomExercise(); ev.preventDefault();
+    }
+    /* Le clavier numérique masque le bouton Valider : sa touche « OK » doit suffire. */
+    if (ev.key === 'Enter' && ev.target && (ev.target.id === 'padW' || ev.target.id === 'padR')) {
+      ev.target.blur(); readPad(); addSet(); ev.preventDefault();
+    }
+  });
+
+  /* Bouton retour d'Android : referme la couche ouverte au lieu de quitter l'app. */
+  window.addEventListener('popstate', function () {
+    if ($('dlg').innerHTML) { closeDialog(false); pushLayer(); return; }
+    if ($('sheet').innerHTML) { closeSheet(); pushLayer(); }
+  });
+
+  function pushLayer() {
+    try { history.pushState({ forge: 1 }, ''); } catch (e) { /* sans effet */ }
+  }
+
   window.addEventListener('beforeunload', function () { save(true); });
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) save(true);
@@ -1293,5 +1647,6 @@
     if (UI.act) prefill(UI.act);
     wakeLock(true);
   }
+  restResume();
   render();
 })();

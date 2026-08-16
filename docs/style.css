@@ -1,43 +1,101 @@
-/* Forge — styles de base.
- * Toute couleur passe par une variable :root. Les modules n'utilisent QUE ces variables.
- * Conçu pour un pouce sur un téléphone : cibles >= 48 px, rien d'important sous le pli.
+/* Forge — feuille de style.
+ *
+ * TROIS RÈGLES, tenues partout :
+ *  1. Aucune couleur en dur hors des blocs :root. Les deux thèmes redéfinissent
+ *     TOUTES les couleurs sémantiques — sinon une teinte pensée pour le fond
+ *     sombre finit illisible sur fond clair (déjà arrivé : --pr à 1,4:1).
+ *  2. Aucune taille de police hors de l'échelle --t-*. Six crans, pas dix-huit.
+ *  3. Aucun espacement hors de l'échelle --s*. Pas de marge magique à l'œil.
+ *
+ * Cible : un pouce, sur un téléphone, entre deux séries. Cibles tactiles >= 44 px.
  */
 
+/* ================================================================= */
+/* Jetons                                                             */
+/* ================================================================= */
+
 :root {
+  /* Fonds et traits */
   --bg: #14110f;
   --bg2: #1e1a17;
   --bg3: #2a2521;
   --line: #38312b;
+
+  /* Texte — --fg3 porte du texte, il doit rester >= 4.5:1 sur --bg2.
+     Pour un trait ou une icône inerte, utiliser --fg-dim, jamais --fg3. */
   --fg: #f3ede7;
   --fg2: #a89b90;
-  --fg3: #6f645b;
+  --fg3: #8d8177;
+  --fg-dim: #5c534b;
+
+  /* Accent */
   --acc: #ff7a18;
   --acc-d: #c85a0a;
   --acc-t: #1a1005;
+
+  /* Sémantique */
   --ok: #30a46c;
   --warn: #ffb224;
   --bad: #e5484d;
+  --bad-s: #c0272d;   /* fond plein d'un bouton destructeur, texte blanc */
   --pr: #ffd23f;
+
+  /* Échelle typographique */
+  --t-xs: 11px;
+  --t-sm: 13px;
+  --t-md: 15px;
+  --t-lg: 17px;
+  --t-xl: 21px;
+  --t-2xl: 26px;
+
+  /* Échelle d'espacement */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
   --radius: 14px;
-  --pad: 14px;
+  --radius-s: 10px;
+  --pad: var(--s4);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
   --nav-h: 62px;
+  --hd-h: 63px;
+
   color-scheme: dark;
 }
 
+/* Thème clair — chaque couleur sémantique est RECALCULÉE pour ce fond.
+   Ratios vérifiés sur --bg2 (#fff) : tous >= 4,5:1. */
 :root[data-theme='light'] {
   --bg: #faf7f4;
   --bg2: #ffffff;
   --bg3: #efe9e3;
   --line: #ddd3c9;
+
   --fg: #1c1714;
   --fg2: #6b5f56;
-  --fg3: #9a8d83;
-  --acc: #d95f00;
-  --acc-d: #b04c00;
-  --acc-t: #fff6ee;
+  --fg3: #79695e;
+  --fg-dim: #b3a79c;
+
+  --acc: #b04c00;
+  --acc-d: #8a3b00;
+  --acc-t: #ffffff;
+
+  --ok: #0f7a48;
+  --warn: #8a5300;
+  --bad: #c0272d;
+  --bad-s: #c0272d;
+  --pr: #8a6100;
+
   color-scheme: light;
 }
+
+/* ================================================================= */
+/* Base                                                               */
+/* ================================================================= */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -49,7 +107,6 @@ html, body {
   font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overscroll-behavior-y: contain;
 }
-
 body { padding-bottom: calc(var(--nav-h) + var(--safe-b)); }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -57,53 +114,97 @@ button { cursor: pointer; border: none; background: none; }
 input, select, textarea {
   background: var(--bg3);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  padding: var(--s3);
   width: 100%;
 }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--acc); outline-offset: 1px; }
 
-/* ---------------- En-tête ---------------- */
+/* Un seul anneau de focus, visible au clavier uniquement, sur tout ce qui
+   se manipule. Aucun élément ne supprime son focus. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='switch']:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+/* Retour d'appui uniforme : la surbrillance native est neutralisée plus haut,
+   il faut donc la remplacer partout, pas sur six sélecteurs choisis. */
+button:active { filter: brightness(1.22); }
+:root[data-theme='light'] button:active { filter: brightness(.93); }
+
+/* Icônes : SVG en ligne héritant de la couleur du texte.
+   flex:none les empêche d'être écrasées dans un conteneur étroit. */
+.ico { flex: none; display: block; }
+.acc { color: var(--acc); display: inline-flex; }
+.chev { color: var(--fg3); display: inline-flex; }
+
+/* ================================================================= */
+/* Titres — DEUX niveaux, pas sept                                    */
+/* ================================================================= */
+
+/* Niveau 1 : titre de feuille ou de dialogue. Bas de casse, lisible. */
+.h1 { font-size: var(--t-lg); font-weight: 700; color: var(--fg); margin: 0; letter-spacing: 0; }
+
+/* Niveau 2 : sur-titre de section. Capitales discrètes, jamais du texte long. */
+.h2, .card h2, .card h3, .exlist .sect, .mhead {
+  margin: 0 0 var(--s3);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fg2);
+}
+.mhead { margin: var(--s5) var(--s1) var(--s2); }
+.exlist .sect { margin: 0; padding: var(--s4) var(--s2) var(--s2); }
+
+/* ================================================================= */
+/* En-tête                                                            */
+/* ================================================================= */
 
 .hd {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px var(--pad);
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--pad);
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
 .hd h1 {
   margin: 0;
-  font-size: 19px;
-  letter-spacing: .14em;
+  font-size: var(--t-lg);
+  letter-spacing: .16em;
   text-transform: uppercase;
   font-weight: 800;
   color: var(--acc);
 }
 .hd .sp { flex: 1; }
 .hd .streak {
-  font-size: 13px;
+  display: inline-flex; align-items: center; gap: var(--s1);
+  font-size: var(--t-sm);
   color: var(--fg2);
   background: var(--bg3);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 5px var(--s3);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.icobtn {
-  width: 42px; height: 42px;
-  display: grid; place-items: center;
-  border-radius: 12px;
-  font-size: 20px;
-  background: var(--bg3);
-}
-.icobtn:active { background: var(--line); }
+.hd .streak .ico { color: var(--acc); }
 
-/* ---------------- Structure ---------------- */
+.icobtn {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-s);
+  background: var(--bg3);
+  color: var(--fg);
+}
+.icobtn svg { width: 20px; height: 20px; }
+
+/* ================================================================= */
+/* Structure                                                          */
+/* ================================================================= */
 
 main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
 .hide { display: none !important; }
@@ -113,48 +214,71 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--pad);
-  margin-bottom: 12px;
+  margin-bottom: var(--s3);
 }
-.card h2, .card h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--fg2); font-weight: 700; }
 
 .muted { color: var(--fg2); }
-.small { font-size: 13px; }
-.tiny { font-size: 12px; }
+.small { font-size: var(--t-sm); }
+.tiny { font-size: var(--t-xs); }
 .center { text-align: center; }
-.row { display: flex; align-items: center; gap: 10px; }
-.row.wrap { flex-wrap: wrap; }
+.row { display: flex; align-items: center; gap: var(--s3); }
+.row.wrap { flex-wrap: wrap; gap: var(--s2); }
 .grow { flex: 1; min-width: 0; }
 .ellip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-2 { height: var(--s2); }
+.sp-4 { height: var(--s4); }
+.sp-6 { height: var(--s6); }
+/* Dégagement sous le dernier élément d'un onglet, au-dessus de la barre basse. */
+.tail { height: 96px; }
 
-/* ---------------- Boutons ---------------- */
+/* ================================================================= */
+/* Boutons                                                            */
+/* ================================================================= */
 
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 48px; padding: 0 18px;
-  border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  min-height: 48px; padding: 0 var(--s5);
+  border-radius: var(--radius-s);
   background: var(--bg3);
   border: 1px solid var(--line);
   font-weight: 600;
 }
 .btn:active { transform: translateY(1px); }
 .btn.pri { background: var(--acc); color: var(--acc-t); border-color: var(--acc); }
-.btn.big { width: 100%; min-height: 58px; font-size: 17px; }
-.btn.sm { min-height: 38px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+.btn.big { width: 100%; min-height: 58px; font-size: var(--t-lg); }
+.btn.sm { min-height: 40px; padding: 0 var(--s3); font-size: var(--t-sm); }
 .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
-.btn[disabled] { opacity: .45; pointer-events: none; }
+.btn.dgr { background: var(--bad-s); border-color: var(--bad-s); color: #fff; }
+.btn[disabled] { opacity: .42; pointer-events: none; }
+
+/* Bouton-carte : pleine largeur, contenu aligné à gauche sur deux lignes.
+   Remplace huit propriétés en ligne qui annulaient .btn. */
+.btn.cardbtn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 66px;
+  padding: var(--s3) var(--s4);
+  margin-bottom: var(--s2);
+  font-weight: 500;
+}
+.btn.cardbtn .t1 { font-weight: 700; display: block; }
+.btn.cardbtn .t2 { display: block; font-size: var(--t-sm); color: var(--fg2); font-weight: 400; }
 
 .chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 36px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: var(--s1);
+  min-height: 40px; padding: 0 var(--s3);
   border-radius: 999px;
   background: var(--bg3);
   border: 1px solid var(--line);
-  font-size: 14px;
+  font-size: var(--t-md);
 }
 .chip.on { background: var(--acc); color: var(--acc-t); border-color: var(--acc); font-weight: 600; }
 .gdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
-/* ---------------- Navigation basse ---------------- */
+/* ================================================================= */
+/* Navigation basse                                                   */
+/* ================================================================= */
 
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
@@ -165,150 +289,211 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
   padding-bottom: var(--safe-b);
 }
 .nav button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   height: var(--nav-h);
-  font-size: 11px; letter-spacing: .04em;
+  font-size: var(--t-xs); letter-spacing: .03em;
   color: var(--fg3);
 }
-.nav button .ic { font-size: 21px; line-height: 1; }
-.nav button.on { color: var(--acc); }
+.nav button .ic { display: block; line-height: 0; }
+.nav button .ic svg { width: 23px; height: 23px; }
+.nav button.on { color: var(--acc); font-weight: 600; }
+/* Second signal, indépendant de la couleur : un trait au-dessus de l'onglet actif. */
+.nav button.on::after {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 30px; height: 3px; border-radius: 0 0 3px 3px;
+  background: var(--acc);
+}
 
-/* ---------------- Séance en cours ---------------- */
+/* ================================================================= */
+/* Séance en cours                                                    */
+/* ================================================================= */
 
 .sesbar {
-  position: sticky; top: 62px; z-index: 20;
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 0 12px;
-  padding: 10px 12px;
+  position: sticky; top: var(--hd-h); z-index: 20;
+  display: flex; align-items: center; gap: var(--s3);
+  margin: 0 0 var(--s3);
+  padding: var(--s3);
   background: var(--bg2);
   border: 1px solid var(--acc-d);
   border-radius: var(--radius);
 }
-.sesbar .t { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; }
-.sesbar input.nm { background: transparent; border: none; padding: 0; font-weight: 600; }
-.sesbar input.nm:focus { outline: none; border-bottom: 1px solid var(--acc); border-radius: 0; }
+.sesbar .t { font-variant-numeric: tabular-nums; font-weight: 700; font-size: var(--t-lg); }
+.sesbar input.nm {
+  background: transparent; border: 1px solid transparent; padding: 4px 6px;
+  margin: -4px -6px; font-weight: 600; border-radius: var(--radius-s);
+}
+.sesbar input.nm:focus { outline: 2px solid var(--acc); outline-offset: 0; }
+
+.sesline {
+  display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
+  font-size: var(--t-sm); color: var(--fg2);
+  margin: 0 var(--s1) var(--s3);
+}
 
 .exblk {
   background: var(--bg2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  margin-bottom: 12px;
+  margin-bottom: var(--s3);
   overflow: hidden;
 }
 .exblk.act { border-color: var(--acc); }
 .exblk > .h {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px var(--pad);
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--pad);
   width: 100%;
+  min-height: 60px;
   text-align: left;
 }
 .exblk > .h .nm { font-weight: 700; }
-.exblk > .h .sub { font-size: 12px; color: var(--fg2); }
+.exblk > .h .sub { font-size: var(--t-sm); color: var(--fg2); }
 .exblk .body { padding: 0 var(--pad) var(--pad); }
 
 .setrow {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 0;
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s1) 0;
+  min-height: 48px;
   border-top: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
 }
-.setrow .i { width: 26px; color: var(--fg3); font-size: 13px; flex: none; text-align: center; }
-.setrow.wu .i { color: var(--warn); }
-.setrow .v { font-weight: 600; }
-.setrow .x { width: 34px; height: 34px; border-radius: 9px; color: var(--fg3); flex: none; font-size: 17px; }
-.setrow .x:active { background: var(--bg3); color: var(--bad); }
-.setrow .prb { color: var(--pr); font-size: 12px; font-weight: 700; }
-
-.lastref { font-size: 12.5px; color: var(--fg2); padding: 8px 0 0; }
-.cue { font-size: 12.5px; color: var(--fg2); font-style: italic; margin-top: 8px; line-height: 1.4; }
-
-/* ---------------- Pavé de saisie ---------------- */
-
-.pad { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
-.stepper { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
-.stepper .lab { width: 54px; display: grid; place-items: center; font-size: 12px; color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; flex: none; }
-.stepper .mn, .stepper .pl {
-  width: 56px; flex: none;
-  border-radius: 12px; background: var(--bg3); border: 1px solid var(--line);
-  font-size: 24px; font-weight: 600;
-  display: grid; place-items: center;
+.setrow .i {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; flex: none;
+  color: var(--fg3); font-size: var(--t-sm);
 }
-.stepper .mn:active, .stepper .pl:active { background: var(--line); }
+.setrow.wu .i, .setrow.wu .i .ico { color: var(--warn); }
+.setrow .v { font-weight: 600; }
+.setrow .x {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; flex: none;
+  border-radius: var(--radius-s);
+  color: var(--fg3);
+}
+.setrow .x:active { background: var(--bg3); color: var(--bad); }
+
+.lastref { font-size: var(--t-sm); color: var(--fg2); padding: var(--s2) 0 0; }
+.cue {
+  display: flex; align-items: flex-start; gap: var(--s2);
+  font-size: var(--t-sm); color: var(--fg2); margin-top: var(--s3); line-height: 1.45;
+  padding: var(--s2) var(--s3); border-radius: var(--radius-s); background: var(--bg3);
+}
+.cue .ico { color: var(--warn); margin-top: 1px; }
+
+/* ================================================================= */
+/* Pavé de saisie                                                     */
+/* ================================================================= */
+
+.pad { margin-top: var(--s3); border-top: 1px solid var(--line); padding-top: var(--s3); }
+.stepper { display: flex; align-items: stretch; gap: var(--s2); margin-bottom: var(--s2); }
+.stepper .lab {
+  width: 54px; flex: none;
+  display: grid; place-items: center;
+  font-size: var(--t-xs); color: var(--fg2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.stepper .mn, .stepper .pl {
+  width: 58px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--radius-s); background: var(--bg3); border: 1px solid var(--line);
+  color: var(--fg);
+}
+.stepper .mn svg, .stepper .pl svg { width: 24px; height: 24px; }
 .stepper .val {
   flex: 1; min-width: 0;
   text-align: center;
-  font-size: 26px; font-weight: 700;
+  font-size: var(--t-2xl); font-weight: 700;
   font-variant-numeric: tabular-nums;
-  padding: 10px 4px;
+  padding: var(--s3) var(--s1);
   background: var(--bg3);
 }
-.plates { font-size: 12.5px; color: var(--fg2); margin: -4px 0 10px; text-align: center; min-height: 18px; }
+.plates {
+  font-size: var(--t-sm); color: var(--fg2);
+  margin: 0 0 var(--s3); text-align: center; min-height: 20px;
+}
 .plates b { color: var(--acc); font-weight: 700; }
-.plates.warnc { color: var(--warn); }
+.plates .warnc { display: inline-flex; align-items: center; gap: var(--s1); color: var(--warn); }
 
-.rpe { display: flex; gap: 6px; margin-bottom: 10px; }
-.rpe button { flex: 1; min-height: 40px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--line); font-size: 14px; }
+.rpe { display: flex; gap: var(--s1); margin-bottom: var(--s3); }
+.rpe button {
+  flex: 1; min-height: 44px;
+  border-radius: var(--radius-s); background: var(--bg3); border: 1px solid var(--line);
+  font-size: var(--t-sm);
+}
 .rpe button.on { background: var(--acc); color: var(--acc-t); border-color: var(--acc); font-weight: 700; }
 
-/* ---------------- Chrono de repos ---------------- */
+/* ================================================================= */
+/* Chrono de repos                                                    */
+/* ================================================================= */
 
 .rest {
   position: fixed; left: 0; right: 0; z-index: 45;
   bottom: calc(var(--nav-h) + var(--safe-b));
   background: var(--bg3);
   border-top: 1px solid var(--acc-d);
-  padding: 10px 12px;
-  display: flex; align-items: center; gap: 10px;
+  padding: var(--s3);
+  display: flex; align-items: center; gap: var(--s3);
   overflow: hidden;
 }
-.rest .bar { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--acc) 22%, transparent); transition: width .5s linear; }
+.rest .bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  transition: width .5s linear;
+}
 .rest > *:not(.bar) { position: relative; }
-.rest .t { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 66px; }
-.rest .lb { font-size: 12.5px; color: var(--fg2); }
+.rest .t { font-size: var(--t-xl); font-weight: 800; font-variant-numeric: tabular-nums; min-width: 66px; }
+.rest .lb { font-size: var(--t-sm); color: var(--fg2); }
 
-/* ---------------- Feuilles / surcouches ---------------- */
+/* ================================================================= */
+/* Feuilles plein écran                                               */
+/* ================================================================= */
 
 .sheet {
   position: fixed; inset: 0; z-index: 60;
   background: var(--bg);
   display: flex; flex-direction: column;
+  padding-top: var(--safe-t);
 }
 .sheet .shd {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px var(--pad);
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s2) var(--pad);
   border-bottom: 1px solid var(--line);
   flex: none;
 }
-.sheet .shd h2 { margin: 0; font-size: 17px; flex: 1; }
-.sheet .sbody { flex: 1; overflow-y: auto; padding: var(--pad); -webkit-overflow-scrolling: touch; }
+.sheet .shd h2 { margin: 0; font-size: var(--t-lg); font-weight: 700; flex: 1; letter-spacing: 0; text-transform: none; color: var(--fg); }
+.sheet .sbody { flex: 1; overflow-y: auto; padding: var(--pad); padding-bottom: calc(var(--s6) + var(--safe-b)); -webkit-overflow-scrolling: touch; }
 
 .exlist button {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: var(--s3);
   width: 100%; text-align: left;
-  padding: 13px 10px;
+  min-height: 56px; padding: var(--s3) var(--s2);
   border-bottom: 1px solid var(--line);
 }
 .exlist button:active { background: var(--bg2); }
 .exlist .nm { font-weight: 600; }
-.exlist .sub { font-size: 12px; color: var(--fg2); }
-.exlist .sect { padding: 14px 10px 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg3); font-weight: 700; }
+.exlist .sub { font-size: var(--t-sm); color: var(--fg2); }
 
-/* ---------------- Historique ---------------- */
+/* ================================================================= */
+/* Historique                                                         */
+/* ================================================================= */
 
 .seslink { display: block; width: 100%; text-align: left; }
 .seslink:active { background: var(--bg3); }
-.stat { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--fg2); margin-top: 6px; }
+.stat { display: flex; gap: var(--s4); flex-wrap: wrap; font-size: var(--t-sm); color: var(--fg2); margin-top: var(--s2); }
 .stat b { color: var(--fg); font-weight: 700; }
 
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.kpi { background: var(--bg3); border-radius: 12px; padding: 10px 8px; text-align: center; }
-.kpi .n { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.kpi .l { font-size: 11px; color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; }
-.kpi .d { font-size: 11px; margin-top: 2px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.kpi { background: var(--bg3); border-radius: var(--radius-s); padding: var(--s3) var(--s2); text-align: center; }
+.kpi .n { font-size: var(--t-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: var(--t-xs); color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .d { font-size: var(--t-xs); margin-top: 2px; }
 .kpi .d.up { color: var(--ok); }
 .kpi .d.dn { color: var(--fg3); }
 
-/* ---------------- Graphiques ---------------- */
+/* ================================================================= */
+/* Graphiques                                                         */
+/* ================================================================= */
 
 .chart { width: 100%; height: auto; display: block; overflow: visible; }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
@@ -316,50 +501,125 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
 .chart .ar { fill: var(--acc); opacity: .12; }
 .chart .pt { fill: var(--acc); }
 .chart .bar { fill: var(--acc); opacity: .85; }
-.chart .bar.dim { opacity: .35; }
-.chart text { fill: var(--fg3); font-size: 10px; }
+.chart .bar.dim { opacity: .38; }
+.chart text { fill: var(--fg2); font-size: var(--t-xs); }
+.chart text.val { fill: var(--fg3); }
+.chartleg { display: flex; justify-content: space-between; font-size: var(--t-xs); color: var(--fg2); margin-top: var(--s2); }
 
-.gbar { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 13px; }
+.gbar { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s2); font-size: var(--t-sm); }
 .gbar .nm { width: 92px; flex: none; color: var(--fg2); }
-/* display:block obligatoire : ce sont des <span>, et une boîte inline ignore width/height. */
+/* display:block obligatoire : ce sont des <span>, et une boîte inline ignore width. */
 .gbar .tr { display: block; flex: 1; height: 10px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
 .gbar .fl { display: block; height: 100%; border-radius: 999px; }
 .gbar .vl { width: 62px; flex: none; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg2); }
 
-/* ---------------- Réglages ---------------- */
+.rec { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.rec .w { font-weight: 700; font-variant-numeric: tabular-nums; }
+.rec .e { font-size: var(--t-xs); color: var(--fg2); width: 66px; text-align: right; }
 
-.field { margin-bottom: 14px; }
-.field > label { display: block; font-size: 13px; color: var(--fg2); margin-bottom: 6px; }
-.field .hint { font-size: 12px; color: var(--fg3); margin-top: 5px; line-height: 1.4; }
-.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.toggle .tl { font-size: 15px; }
-.toggle .th { font-size: 12px; color: var(--fg3); }
-.sw { width: 52px; height: 30px; border-radius: 999px; background: var(--bg3); border: 1px solid var(--line); position: relative; flex: none; }
-.sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--fg3); transition: transform .16s, background .16s; }
-.sw.on { background: color-mix(in srgb, var(--acc) 35%, var(--bg3)); border-color: var(--acc); }
-.sw.on::after { transform: translateX(22px); background: var(--acc); }
+/* ================================================================= */
+/* Réglages                                                           */
+/* ================================================================= */
 
-/* ---------------- Toast ---------------- */
+.field { margin-bottom: var(--s4); }
+.field > label { display: block; font-size: var(--t-sm); color: var(--fg2); margin-bottom: var(--s2); }
+.field .hint, .hint { font-size: var(--t-xs); color: var(--fg3); margin-top: var(--s2); line-height: 1.45; }
+.toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: var(--s3) 0; border-bottom: 1px solid var(--line);
+}
+.toggle .tl { font-size: var(--t-md); }
+.toggle .th { font-size: var(--t-xs); color: var(--fg3); }
+.sw {
+  width: 52px; height: 32px; flex: none; position: relative;
+  border-radius: 999px; background: var(--bg3); border: 1px solid var(--line);
+}
+.sw::after {
+  content: ''; position: absolute; top: 4px; left: 4px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--fg-dim);
+  transition: transform .16s, background .16s;
+}
+.sw.on { background: color-mix(in srgb, var(--acc) 32%, var(--bg3)); border-color: var(--acc); }
+.sw.on::after { transform: translateX(20px); background: var(--acc); }
+
+/* ================================================================= */
+/* Boîtes de dialogue                                                 */
+/* ================================================================= */
+
+.ovl {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0, 0, 0, .64);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--s5);
+  animation: fade .13s ease-out;
+}
+.dlg {
+  width: 100%; max-width: 400px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: var(--s5);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+  animation: pop .16s ease-out;
+}
+.dlg h3 { margin: 0 0 var(--s2); font-size: var(--t-lg); font-weight: 700; color: var(--fg); }
+.dlg p { margin: 0 0 var(--s4); font-size: var(--t-md); line-height: 1.5; color: var(--fg2); }
+.dlg .dlab { display: block; font-size: var(--t-sm); color: var(--fg2); margin-bottom: var(--s2); }
+.dlg input { margin-bottom: var(--s4); }
+.dlg .dacts { display: flex; gap: var(--s2); }
+.dlg .dacts .btn { flex: 1; padding: 0 var(--s3); }
+
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97) } to { opacity: 1; transform: none } }
+
+/* ================================================================= */
+/* Toast — en HAUT : en bas il recouvrait le bouton d'action          */
+/* ================================================================= */
 
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--nav-h) + var(--safe-b) + 16px);
+  top: calc(var(--safe-t) + var(--hd-h) + var(--s2));
   z-index: 80;
   background: var(--bg3); border: 1px solid var(--line);
-  border-radius: 999px; padding: 10px 18px;
-  font-size: 14px; font-weight: 600;
+  border-radius: 999px; padding: var(--s3) var(--s4);
+  font-size: var(--t-md); font-weight: 600;
   box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
-  display: flex; align-items: center; gap: 10px;
-  max-width: 90vw;
+  display: flex; align-items: center; gap: var(--s2);
+  max-width: 92vw;
+  animation: drop .16s ease-out;
 }
+.toast .ico { flex: none; }
 .toast.pr { border-color: var(--pr); color: var(--pr); }
-/* Le chrono de repos occupe le bas de l'écran : le toast passe au-dessus. */
-body.resting .toast { bottom: calc(var(--nav-h) + var(--safe-b) + 76px); }
-.toast button { color: var(--acc); font-weight: 700; }
+.toast.alert { border-color: var(--warn); color: var(--warn); }
+.toast.ok .ico { color: var(--ok); }
+.toast.timer .ico { color: var(--acc); }
+.toast .undo {
+  color: var(--acc); font-weight: 700; font-size: var(--t-sm);
+  padding: var(--s1) var(--s2); margin: calc(-1 * var(--s1)) calc(-1 * var(--s1)) calc(-1 * var(--s1)) 0;
+  border-radius: var(--radius-s);
+}
+@keyframes drop { from { opacity: 0; transform: translate(-50%, -10px) } to { opacity: 1; transform: translate(-50%, 0) } }
 
-.empty { text-align: center; color: var(--fg2); padding: 34px 16px; }
-.empty .big { font-size: 40px; margin-bottom: 10px; opacity: .55; }
+/* ================================================================= */
+/* États vides                                                        */
+/* ================================================================= */
+
+.empty { text-align: center; color: var(--fg2); padding: var(--s6) var(--s4); line-height: 1.55; }
+.empty .big { display: flex; justify-content: center; margin-bottom: var(--s4); color: var(--fg-dim); }
+.empty .big svg { width: 44px; height: 44px; }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Éditeur de disques (réglages) */
+.plw { width: 74px; flex: none; font-variant-numeric: tabular-nums; }
+.pln { width: 78px; flex: none; text-align: center; font-variant-numeric: tabular-nums; color: var(--fg2); }
+
+/* Les flèches natives d'un <input type="number"> volent de la place au chiffre
+   et ne sont jamais utilisables au pouce : les vraies commandes sont les
+   boutons + / − de part et d'autre. */
+.stepper .val { -moz-appearance: textfield; appearance: textfield; }
+.stepper .val::-webkit-outer-spin-button,
+.stepper .val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

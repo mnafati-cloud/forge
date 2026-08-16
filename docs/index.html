@@ -2,7 +2,7 @@
 <html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Forge</title>
 <meta name="description" content="Suivi de musculation à la maison — séances, charges, progression.">
 <meta name="theme-color" content="#14110f">
@@ -33,19 +33,20 @@
   <h1>Forge</h1>
   <span class="sp"></span>
   <span class="streak" id="streak"></span>
-  <button class="icobtn" id="btnSet" aria-label="Réglages">⚙️</button>
+  <button class="icobtn" id="btnSet" aria-label="Réglages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21v-6.5M5 10.5V3M12 21v-8.5M12 8.5V3M19 21v-4.5M19 12.5V3M2.5 14.5h5M9.5 10.5h5M16.5 16.5h5"/></svg></button>
 </header>
 
 <main id="view"></main>
 
 <nav class="nav" id="nav">
-  <button data-tab="ses" class="on"><span class="ic">🏋️</span>Séance</button>
-  <button data-tab="his"><span class="ic">📓</span>Historique</button>
-  <button data-tab="pro"><span class="ic">📈</span>Progrès</button>
+  <button data-tab="ses" class="on" aria-current="page"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.25v3.5M6.75 7.25v9.5M17.25 7.25v9.5M21 10.25v3.5M6.75 12h10.5"/></svg></span>Séance</button>
+  <button data-tab="his"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5h10.5M9.5 12h10.5M9.5 17.5h7M4 6.5h1.75M4 12h1.75M4 17.5h1.75"/></svg></span>Historique</button>
+  <button data-tab="pro"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 17.5l5.5-5.5 3.5 3.5 8-8"/><path d="M14.5 7.5h6v6"/></svg></span>Progrès</button>
 </nav>
 
 <div id="rest"></div>
 <div id="sheet"></div>
+<div id="dlg"></div>
 <div id="toast"></div>
 
 <script src="exercises.js"></script>

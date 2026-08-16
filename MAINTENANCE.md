@@ -133,7 +133,16 @@ Suivre LE PATTERN (CLAUDE.md). Concrètement :
 - Le format accepte aussi un état nu (sans enveloppe), pour dépanner à la main.
 - **Ce fichier ne doit JAMAIS entrer dans un dépôt** (`.gitignore` le couvre).
 
-### R7 — Régénérer les icônes
+### R7bis — Ajouter une icône à l'interface
+
+1. Dessiner le tracé sur une grille 24×24, **trait uniquement** : `fill="none"`, coins et jonctions
+   arrondis, épaisseur 1,7. Pas de remplissage, sauf un point plein occasionnel (`alert`).
+2. L'ajouter à l'objet `ICONS` dans `docs/app.js`, par ordre alphabétique de son rôle.
+3. L'appeler par `ico('nom', taille)` — la taille est en pixels, 20 par défaut.
+4. Vérifier sa lisibilité à 14 px : si le dessin se referme, simplifier le tracé.
+5. Ne JAMAIS employer un emoji ni un caractère typographique (✕ ↻ ▸) à la place.
+
+### R7 — Régénérer les icônes de l'application (PWA)
 
 `python3 tools/make_icons.py` — pas de dépendance, encodeur PNG maison (zlib + struct).
 Modifier `BG`/`FG` ou la fonction `dumbbell()` pour changer le dessin.
@@ -186,6 +195,39 @@ Changer le header sans changer cette valeur fait chevaucher la barre de séance.
 Les deux sont fixés en bas. `restStart`/`restStop` posent/retirent `body.resting`,
 et `body.resting .toast` remonte de 76 px. Toute nouvelle barre fixe en bas doit faire pareil.
 
+**P8 — Le marqueur d'échauffement restait armé après validation.**
+`UI.wu` n'était jamais remis à zéro : après une série d'échauffement, TOUTES les séries de travail
+suivantes étaient enregistrées `u:1`, donc exclues du tonnage et des records — en silence, sans
+que rien à l'écran ne l'indique. `addSet()` désarme désormais `UI.wu` dès qu'une série `u:1` est
+validée. C'est le bug le plus grave trouvé sur cette base : il corrompait les statistiques sans
+laisser de trace.
+
+**P9 — Un champ vidé faisait enregistrer l'ancienne valeur.**
+`readPad()` testait `if (w.value !== '')`. Vider le champ des reps puis appuyer sur Valider
+enregistrait donc le chiffre précédent, différent de celui affiché. Un champ vide vaut zéro,
+point ; et le bouton Valider est `disabled` tant que les reps valent zéro.
+
+**P10 — `fmtClock` n'avait pas d'heures.**
+Utilisé à la fois pour le repos (toujours court) et pour le chrono de séance (souvent > 1 h).
+Au bout de 83 minutes, l'écran affichait « 83:12 ». La fonction gère les heures depuis, et le
+test le verrouille.
+
+**P11 — Le chrono de repos ne vivait qu'en mémoire.**
+Chrome décharge volontiers un onglet en arrière-plan. Le repos disparaissait pendant la série.
+Il est désormais mémorisé dans `ST.rest = {end, total}` — une **heure de fin absolue**, jamais
+un compteur — et `restResume()` le reprend au démarrage. Toute minuterie future doit suivre ce
+principe : stocker l'échéance, pas le temps restant.
+
+**P12 — Sans démarrage automatique, le chrono devenait inatteignable.**
+Le repos ne pouvait démarrer que via `restAuto`. Couper le réglage supprimait toute possibilité
+de lancer un chrono. Le pavé porte maintenant sa propre commande « Repos ». Règle générale :
+une fonction pilotée par un réglage doit rester accessible quand le réglage est coupé.
+
+**P13 — Les icônes en emoji ignorent `color`.**
+Sur Android, les emoji sont rendus en bitmap couleur par Noto Color Emoji. L'onglet actif de la
+barre de navigation ne changeait donc pas de couleur, et l'alignement optique variait d'un
+téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans app.js).
+
 ---
 
 ## 4. Décisions de conception (le « pourquoi »)
@@ -204,13 +246,25 @@ et `body.resting .toast` remonte de 76 px. Toute nouvelle barre fixe en bas doit
   d'avoir la dernière version, avec le cache comme filet pour une séance hors-ligne.
 - **Un seul écran de saisie visible à la fois** (l'exercice actif se déplie, les autres se replient) :
   entre deux séries, on a une main libre et 20 secondes.
+- **Aucun emoji, aucun dialogue natif.** Ce sont les deux marqueurs qui font « page web » plutôt
+  qu'« application ». Les icônes sont des SVG de trait sur grille 24 ; les confirmations passent par
+  `askDialog()`, dans le vocabulaire visuel de l'app.
+- **Les graphiques n'affichent que des valeurs qui existent.** La courbe imprimait auparavant comme
+  graduation un maximum gonflé de 18 % pour aérer le tracé : le chiffre lu ne correspondait à aucune
+  séance. `E.niceMax()` fournit une borne ronde réelle, utilisée à la fois pour l'échelle et pour
+  l'étiquette. Les semaines sont datées (« 10/08 »), pas numérotées (« S33 ») : personne ne sait
+  situer la semaine 33 dans l'année.
+- **Toute action destructrice s'annule.** Supprimer une série ou retirer un exercice affiche un
+  « Annuler » pendant 6 s plutôt qu'une confirmation avant coup : on ne coupe pas le rythme d'une
+  séance pour demander « êtes-vous sûr ». Les destructions massives (séance, tout effacer), elles,
+  passent par un dialogue — et l'effacement total exige de taper le mot EFFACER.
 
 ---
 
 ## 5. Checklist avant push
 
 ```
-[ ] node --test tests/*.test.mjs              → 28/28 vert
+[ ] node --test tests/*.test.mjs              → 31/31 vert
 [ ] for f in docs/*.js; do node --check $f; done → aucune erreur
 [ ] CACHE bumpé dans docs/sw.js               → si docs/ a changé
 [ ] ASSETS à jour dans docs/sw.js             → si un fichier a été ajouté à docs/

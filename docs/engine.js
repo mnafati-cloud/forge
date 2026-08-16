@@ -278,6 +278,37 @@
     return y + '-W' + (wk < 10 ? '0' + wk : String(wk));
   }
 
+  /**
+   * Lundi de la semaine ISO "YYYY-Www", au format "YYYY-MM-DD".
+   * Le 4 janvier appartient toujours à la semaine 1 : on part de lui.
+   * Sert à étiqueter les graphiques avec une vraie date plutôt qu'un n° de semaine,
+   * que personne ne sait situer dans l'année.
+   */
+  function weekStart(key) {
+    var m = /^(\d{4})-W(\d{2})$/.exec(String(key));
+    if (!m) return '';
+    var y = +m[1], w = +m[2];
+    var jan4 = new Date(Date.UTC(y, 0, 4));
+    var dow = jan4.getUTCDay() || 7;                 // lundi = 1 … dimanche = 7
+    jan4.setUTCDate(jan4.getUTCDate() - (dow - 1) + (w - 1) * 7);
+    return jan4.toISOString().slice(0, 10);
+  }
+
+  /**
+   * Plus petite graduation « propre » >= v : 1, 2, 2.5 ou 5 × une puissance de 10.
+   * Un axe doit afficher une valeur qui existe, pas un maximum gonflé pour l'esthétique.
+   */
+  function niceMax(v) {
+    v = Number(v) || 0;
+    if (v <= 0) return 1;
+    var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var f = v / mag;
+    var echelle = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    var i;
+    for (i = 0; i < echelle.length; i++) if (f <= echelle[i] + 1e-9) return r2(echelle[i] * mag);
+    return r2(10 * mag);
+  }
+
   /** Décale une date "YYYY-MM-DD" de n jours (n négatif = passé). */
   function shiftDate(dateStr, n) {
     var p = String(dateStr).split('-');
@@ -388,11 +419,19 @@
     return s + ' s';
   }
 
-  /** Secondes -> "2:05" pour le chrono de repos. */
+  /**
+   * Secondes -> "2:05", et "1:23:12" au-delà de l'heure.
+   * Sert au repos (toujours court) ET au chrono de séance (souvent > 1 h) :
+   * sans le cas des heures, une séance de 83 minutes affichait « 83:12 ».
+   */
   function fmtClock(sec) {
     sec = Math.max(0, Math.round(Number(sec) || 0));
-    var m = Math.floor(sec / 60), s = sec % 60;
-    return m + ':' + (s < 10 ? '0' + s : s);
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    var ss = s < 10 ? '0' + s : String(s);
+    if (h) return h + ':' + (m < 10 ? '0' + m : m) + ':' + ss;
+    return m + ':' + ss;
   }
 
   /** Tonnage -> "12,4 t" au-delà de 1000 kg, sinon "840 kg". */
@@ -419,6 +458,8 @@
     prCheck: prCheck,
     groupVolume: groupVolume,
     weekKey: weekKey,
+    weekStart: weekStart,
+    niceMax: niceMax,
     shiftDate: shiftDate,
     daysBetween: daysBetween,
     weekSeries: weekSeries,

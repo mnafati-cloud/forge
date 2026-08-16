@@ -1,13 +1,13 @@
 /* Forge — service worker.
  *
  * RÈGLE DE RELEASE : à CHAQUE modification d'un fichier de docs/, incrémenter CACHE
- * (forge-v1 -> forge-v2 …). Un fichier JS/CSS ajouté dans docs/ doit AUSSI être
+ * (forge-v2 -> forge-v3 …). Un fichier JS/CSS ajouté dans docs/ doit AUSSI être
  * ajouté à ASSETS, sinon il ne sera pas disponible hors-ligne.
  *
  * Stratégie : network-first. Le téléphone récupère donc la dernière version dès
  * qu'il a du réseau, et garde une copie complète pour les séances hors-ligne.
  */
-const CACHE = 'forge-v1';
+const CACHE = 'forge-v2';
 
 const ASSETS = [
   './',
