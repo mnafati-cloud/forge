@@ -125,6 +125,11 @@ python3 tools/make_icons.py
    Console sans erreur.
 5. `git add` ciblé (vérifier avec `git status` : AUCUN `forge-export-*.json`) → commit → push sur `main`.
 6. Le push déclenche le workflow **« Deploy Pages »**. Vérifier ensuite :
+   > **Prérequis, à faire une seule fois** : GitHub Pages doit être activé à la main dans
+   > *Settings → Pages → Build and deployment → Source = **GitHub Actions***.
+   > Le `GITHUB_TOKEN` d'un run n'a pas le droit de créer le site Pages : `configure-pages`
+   > échoue sur `Create Pages site failed: Resource not accessible by integration` tant que
+   > ce réglage n'a pas été posé par un humain. Une fois posé, l'étape passe toute seule.
    `curl -s https://mnafati-cloud.github.io/forge/sw.js | grep CACHE`.
    Sur le téléphone, le service worker network-first récupère la mise à jour au prochain lancement.
    ⚠️ Si `deploy-pages` échoue (« Deployment failed, try again later »), relancer le run — ça passe
