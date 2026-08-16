@@ -223,6 +223,36 @@ Le repos ne pouvait démarrer que via `restAuto`. Couper le réglage supprimait 
 de lancer un chrono. Le pavé porte maintenant sa propre commande « Repos ». Règle générale :
 une fonction pilotée par un réglage doit rester accessible quand le réglage est coupé.
 
+**P14 — Les records se réécrivaient tout seuls à chaque pesée.**
+Les fonctions du moteur recevaient un poids de corps SCALAIRE — celui du jour — et recalculaient
+tout l'historique avec. Un record de tractions établi à 80 kg tombait à 70 kg dès la pesée
+suivante, et le tonnage de mars changeait en août. Elles acceptent désormais aussi une
+**fonction** `(dateStr) -> kg`, et `app.js` leur passe `bwAt`. Règle : tout calcul portant sur
+plusieurs séances reçoit la fonction, jamais un poids figé.
+
+**P15 — Les gainages en secondes polluaient tout.**
+`r` vaut des répétitions OU des secondes. Sans distinction, 60 secondes de planche à 80 kg
+pesaient 4800 « kg » et écrasaient à elles seules le tonnage réel d'une séance. Le drapeau
+`sec:1` sur l'exercice les exclut du tonnage et du 1RM ; leur record est la **durée**, et le
+`w` retenu est le **lest ajouté**, jamais la charge totale — sans quoi prendre deux kilos
+déclenchait un faux record de gainage.
+
+**P16 — Le glouton des disques annonçait « non chargeable » à tort.**
+Avec des disques 25/20/10 et 30 kg à charger par côté, l'algorithme posait 25, se retrouvait
+bloqué et déclarait la barre impossible — alors que 20 + 10 tombe juste. `platePlan` fait
+maintenant une recherche exacte (sac à dos borné) ; un jeu de disques domestique tient en huit
+tailles, c'est instantané.
+
+**P17 — `history.back()` refermait la couche du dessous.**
+Fermer un dialogue ouvert DEPUIS une feuille refermait aussi la feuille : le `popstate` déclenché
+par notre propre `history.back()` voyait la feuille encore ouverte et la prenait pour la couche à
+fermer. D'où le drapeau `retourInterne`. Toute fermeture programmatique doit se signaler.
+
+**P18 — `<input type="number">` rejette la virgule.**
+Un clavier français produit « 42,5 ». Le champ devient invalide et `.value` renvoie une chaîne
+VIDE : la charge partait à zéro. Les champs de saisie sont passés en `type="text"` +
+`inputmode="decimal"`, avec une normalisation virgule → point à la lecture.
+
 **P13 — Les icônes en emoji ignorent `color`.**
 Sur Android, les emoji sont rendus en bitmap couleur par Noto Color Emoji. L'onglet actif de la
 barre de navigation ne changeait donc pas de couleur, et l'alignement optique variait d'un
@@ -264,7 +294,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
 ## 5. Checklist avant push
 
 ```
-[ ] node --test tests/*.test.mjs              → 31/31 vert
+[ ] node --test tests/*.test.mjs              → 40/40 vert
 [ ] for f in docs/*.js; do node --check $f; done → aucune erreur
 [ ] CACHE bumpé dans docs/sw.js               → si docs/ a changé
 [ ] ASSETS à jour dans docs/sw.js             → si un fichier a été ajouté à docs/
@@ -274,9 +304,12 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
       [ ] le chrono de repos démarre, +30 s et Passer fonctionnent
       [ ] modifier une série (tap sur la ligne), en supprimer une
       [ ] terminer la séance
+      [ ] corriger une série depuis l'historique, puis annuler une suppression
+      [ ] un gainage (planche) : saisie en secondes, hors tonnage
       [ ] onglet Historique → ouvrir le détail → « Refaire cette séance »
       [ ] onglet Progrès → les 4 blocs s'affichent, les graphiques se tracent
       [ ] ⚙️ → un export se télécharge, un import le restaure
+      [ ] basculer en thème clair : aucun texte sous 4,5:1
       [ ] console (F12) : aucune erreur
 [ ] git status : aucun forge-export-*.json
 ```

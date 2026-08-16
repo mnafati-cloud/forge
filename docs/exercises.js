@@ -15,6 +15,9 @@
  *   bw  1|0     poids du corps -> la charge saisie est un LEST additionnel
  *   uni 1|0     unilatéral -> la charge saisie est celle d'UN côté
  *   bench 1|0   nécessite le banc
+ *   sec 1|0     l'exercice se mesure en SECONDES : `r` est une durée, pas un nombre
+ *               de répétitions. Exclu du tonnage et du 1RM estimé ; son record
+ *               est la durée la plus longue.
  *   c   string  rappel technique court (affiché pendant la série)
  */
 (function (root) {
@@ -39,7 +42,7 @@
     bw: 'Poids du corps',
     db: 'Haltères',
     bb: 'Barre',
-    mac: 'Machine / poulie',
+    mac: 'Machine / poulie',   /* aucun exercice livré : réservé aux exercices personnels */
     band: 'Élastique'
   };
 
@@ -54,7 +57,7 @@
     { id: 'bb-ohp', n: 'Développé militaire', g: 'epa', g2: ['tri'], eq: 'bb', bar: 1, c: 'Abdos et fessiers gainés, ne cambre pas, tête passe sous la barre en haut.' },
     { id: 'bb-row', n: 'Rowing barre', g: 'dos', g2: ['bic'], eq: 'bb', bar: 1, c: 'Buste à ~45°, tire vers le nombril, pas d’à-coups de hanches.' },
     { id: 'bb-hip-thrust', n: 'Hip thrust barre', g: 'fes', g2: ['isc'], eq: 'bb', bar: 1, bench: 1, c: 'Menton rentré, verrouille en haut 1 seconde.' },
-    { id: 'bb-lunge', n: 'Fente barre', g: 'qua', g2: ['fes'], eq: 'bb', bar: 1, uni: 1, c: 'Grand pas, genou arrière vers le sol, buste droit.' },
+    { id: 'bb-lunge', n: 'Fente barre', g: 'qua', g2: ['fes'], eq: 'bb', bar: 1, c: 'Une barre unique sur le dos : la charge saisie est la charge totale. Une série par jambe.' },
     { id: 'bb-curl', n: 'Curl barre', g: 'bic', g2: ['ava'], eq: 'bb', bar: 1, c: 'Coudes collés au buste, pas de balancier.' },
     { id: 'bb-skullcrusher', n: 'Barre au front', g: 'tri', eq: 'bb', bar: 1, bench: 1, c: 'Coudes fixes, seul l’avant-bras bouge.' },
     { id: 'bb-good-morning', n: 'Good morning', g: 'isc', g2: ['dos', 'fes'], eq: 'bb', bar: 1, c: 'Charge légère, dos verrouillé, amplitude contrôlée.' },
@@ -89,7 +92,7 @@
     { id: 'db-calf-raise', n: 'Mollets debout haltères', g: 'mol', eq: 'db', c: 'Amplitude maximale, pause en haut.' },
     { id: 'db-shrug', n: 'Shrug haltères', g: 'dos', g2: ['epa'], eq: 'db', c: 'Épaules vers les oreilles, sans rotation.' },
     { id: 'db-wrist-curl', n: 'Curl poignets', g: 'ava', eq: 'db', bench: 1, c: 'Avant-bras posés, amplitude complète.' },
-    { id: 'db-farmer-walk', n: 'Marche du fermier', g: 'ava', g2: ['full'], eq: 'db', c: 'Gainage, épaules basses, mesure en secondes (note dans reps).' },
+    { id: 'db-farmer-walk', n: 'Marche du fermier', g: 'ava', g2: ['full'], eq: 'db', sec: 1, c: 'Gainage, épaules basses, pas courts et réguliers.' },
 
     /* ---------- POIDS DU CORPS ---------- */
     { id: 'bw-pushup', n: 'Pompes', g: 'pec', g2: ['tri', 'epa'], eq: 'bw', bw: 1, c: 'Corps aligné, coudes à ~45°, poitrine au sol.' },
@@ -98,25 +101,38 @@
     { id: 'bw-diamond-pushup', n: 'Pompes diamant', g: 'tri', g2: ['pec'], eq: 'bw', bw: 1, c: 'Mains jointes sous le sternum, coudes serrés.' },
     { id: 'bw-dip-bench', n: 'Dips sur banc', g: 'tri', g2: ['pec'], eq: 'bw', bw: 1, bench: 1, c: 'Descends jusqu’à 90° au coude, épaules basses.' },
     { id: 'bw-pullup', n: 'Tractions pronation', g: 'dos', g2: ['bic'], eq: 'bw', bw: 1, c: 'Menton au-dessus de la barre, descente complète.' },
-    { id: 'bw-chinup', n: 'Tractions supination', g: 'bic', g2: ['dos'], eq: 'bw', bw: 1, c: 'Prise supination, coudes vers le bas.' },
+    { id: 'bw-chinup', n: 'Tractions supination', g: 'dos', g2: ['bic'], eq: 'bw', bw: 1, c: 'Prise supination, coudes vers le bas, poitrine vers la barre.' },
     { id: 'bw-squat', n: 'Squat au poids du corps', g: 'qua', g2: ['fes'], eq: 'bw', bw: 1, c: 'Talons au sol, descends bas et contrôlé.' },
     { id: 'bw-glute-bridge', n: 'Pont fessier', g: 'fes', g2: ['isc'], eq: 'bw', bw: 1, c: 'Pousse par les talons, verrouille en haut.' },
     { id: 'bw-nordic-curl', n: 'Nordic curl', g: 'isc', eq: 'bw', bw: 1, c: 'Descente la plus lente possible, gainage total.' },
-    { id: 'bw-plank', n: 'Gainage planche', g: 'abd', eq: 'bw', bw: 1, c: 'Mesure en secondes (note-les dans les reps). Bassin en rétroversion.' },
-    { id: 'bw-side-plank', n: 'Gainage latéral', g: 'abd', eq: 'bw', bw: 1, uni: 1, c: 'Secondes dans les reps. Hanches hautes.' },
-    { id: 'bw-hollow-hold', n: 'Hollow hold', g: 'abd', eq: 'bw', bw: 1, c: 'Secondes dans les reps. Lombaires plaquées au sol.' },
+    { id: 'bw-plank', n: 'Gainage planche', g: 'abd', eq: 'bw', bw: 1, sec: 1, c: 'Bassin en rétroversion, corps aligné des talons à la nuque.' },
+    { id: 'bw-side-plank', n: 'Gainage latéral', g: 'abd', eq: 'bw', bw: 1, uni: 1, sec: 1, c: 'Hanches hautes, épaule à l’aplomb du coude. Un côté par série.' },
+    { id: 'bw-hollow-hold', n: 'Hollow hold', g: 'abd', eq: 'bw', bw: 1, sec: 1, c: 'Lombaires plaquées au sol, bras et jambes tendus.' },
     { id: 'bw-crunch', n: 'Crunch', g: 'abd', eq: 'bw', bw: 1, c: 'Enroule la colonne, ne tire pas sur la nuque.' },
     { id: 'bw-leg-raise', n: 'Relevés de jambes', g: 'abd', eq: 'bw', bw: 1, c: 'Bas du dos plaqué, contrôle la descente.' },
     { id: 'bw-ab-wheel', n: 'Roulette abdos', g: 'abd', eq: 'bw', bw: 1, c: 'Bassin verrouillé, n’arrondis pas le bas du dos.' },
     { id: 'bw-calf-raise', n: 'Mollets au poids du corps', g: 'mol', eq: 'bw', bw: 1, c: 'Une jambe pour durcir, amplitude complète.' },
-    { id: 'bw-superman', n: 'Superman (lombaires)', g: 'dos', eq: 'bw', bw: 1, c: 'Secondes dans les reps. Extension douce.' },
+    { id: 'bw-superman', n: 'Superman (lombaires)', g: 'dos', eq: 'bw', bw: 1, sec: 1, c: 'Extension douce, sans à-coup. Regard vers le sol.' },
     { id: 'bw-burpee', n: 'Burpees', g: 'full', eq: 'bw', bw: 1, c: 'Cardio. Rythme régulier plutôt que rapide.' },
-    { id: 'bw-mountain-climber', n: 'Mountain climbers', g: 'abd', g2: ['full'], eq: 'bw', bw: 1, c: 'Secondes ou répétitions, bassin stable.' },
+    { id: 'bw-mountain-climber', n: 'Mountain climbers', g: 'abd', g2: ['full'], eq: 'bw', bw: 1, sec: 1, c: 'Bassin stable, rythme régulier.' },
 
     /* ---------- ÉLASTIQUE ---------- */
     { id: 'band-pull-apart', n: 'Pull apart élastique', g: 'epa', g2: ['dos'], eq: 'band', c: 'Idéal en échauffement, serre les omoplates.' },
     { id: 'band-face-pull', n: 'Face pull élastique', g: 'epa', g2: ['dos'], eq: 'band', c: 'Tire vers le front, rotation externe en fin de mouvement.' },
-    { id: 'band-row', n: 'Rowing élastique', g: 'dos', g2: ['bic'], eq: 'band', c: 'Tension constante, contrôle le retour.' }
+    { id: 'band-row', n: 'Rowing élastique', g: 'dos', g2: ['bic'], eq: 'band', c: 'Tension constante, contrôle le retour.' },
+    { id: 'band-lat-pulldown', n: 'Tirage vertical élastique', g: 'dos', g2: ['bic'], eq: 'band', c: 'Élastique ancré en hauteur, tire les coudes vers les hanches.' },
+    { id: 'band-assisted-pullup', n: 'Traction assistée élastique', g: 'dos', g2: ['bic'], eq: 'band', c: 'Pied dans l’élastique : la progression se fait en réduisant l’assistance.' },
+    { id: 'bw-inverted-row', n: 'Rowing inversé (sous une barre)', g: 'dos', g2: ['bic'], eq: 'bw', bw: 1, c: 'Barre calée bas, corps gainé. Plus les pieds sont loin, plus c’est dur.' },
+
+    /* ---------- AJOUTS — mouvements évidents pour halteres + banc + barre ---------- */
+    { id: 'db-floor-press', n: 'Développé au sol haltères', g: 'pec', g2: ['tri'], eq: 'db', c: 'Coudes au sol à chaque répétition, amplitude limitée et sûre pour l’épaule.' },
+    { id: 'db-chest-supported-row', n: 'Rowing buste sur banc incliné', g: 'dos', g2: ['bic'], eq: 'db', bench: 1, c: 'Buste posé sur le banc incliné : aucune triche lombaire possible.' },
+    { id: 'db-upright-row', n: 'Rowing menton haltères', g: 'epa', g2: ['dos'], eq: 'db', c: 'Coudes plus hauts que les mains, ne monte pas au-delà des clavicules.' },
+    { id: 'bb-overhead-shrug', n: 'Shrug barre bras tendus', g: 'epa', g2: ['dos'], eq: 'bb', bar: 1, c: 'Barre au-dessus de la tête, pousse les épaules vers le plafond.' },
+    { id: 'db-reverse-fly-bench', n: 'Oiseau buste sur banc', g: 'epa', g2: ['dos'], eq: 'db', bench: 1, c: 'Buste posé, charge légère, serre les omoplates sans hausser les épaules.' },
+    { id: 'db-single-leg-rdl', n: 'Soulevé de terre unilatéral', g: 'isc', g2: ['fes'], eq: 'db', uni: 1, c: 'Une jambe, hanche qui recule, bassin bien parallèle au sol.' },
+    { id: 'db-tricep-ext-bench', n: 'Extension triceps couché haltères', g: 'tri', eq: 'db', bench: 1, c: 'Coudes fixes vers le plafond, seul l’avant-bras descend.' },
+    { id: 'bw-reverse-crunch', n: 'Crunch inversé', g: 'abd', eq: 'bw', bw: 1, c: 'Enroule le bassin vers le buste, sans élan de jambes.' }
   ];
 
   var API = { GROUPS: GROUPS, EQUIP: EQUIP, EXERCISES: EXERCISES };

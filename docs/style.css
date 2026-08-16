@@ -623,3 +623,7 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
 .stepper .val { -moz-appearance: textfield; appearance: textfield; }
 .stepper .val::-webkit-outer-spin-button,
 .stepper .val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Dialogue à deux champs (correction d'une série enregistrée) */
+.dlg .drow { display: flex; gap: var(--s3); }
+.dlg .dfield { flex: 1; min-width: 0; }

@@ -114,31 +114,112 @@
     return { v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)), ses: [], cur: null, ex: {}, bw: [], rest: null };
   }
 
+  /** Une série exploitable, ou null. Une entrée douteuse est écartée, pas devinée. */
+  function saineSerie(x) {
+    if (!x || typeof x !== 'object' || typeof x.x !== 'string' || !x.x) return null;
+    var r = Math.round(Number(x.r));
+    if (!isFinite(r) || r < 0) return null;
+    var w = Number(x.w);
+    return {
+      x: x.x,
+      w: isFinite(w) && w >= 0 ? w : 0,
+      r: r,
+      e: Number(x.e) >= 0 && Number(x.e) <= 10 ? Math.round(Number(x.e)) : 0,
+      u: x.u ? 1 : 0,
+      t: isFinite(Number(x.t)) ? Number(x.t) : 0
+    };
+  }
+
+  /** Une séance exploitable, ou null. */
+  function saineSeance(z, encours) {
+    if (!z || typeof z !== 'object') return null;
+    if (typeof z.id !== 'string' || !z.id) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(z.d)) return null;
+    if (!Array.isArray(z.s)) return null;
+    var series = [], i, ok;
+    for (i = 0; i < z.s.length; i++) { ok = saineSerie(z.s[i]); if (ok) series.push(ok); }
+    if (!encours && !series.length) return null;   // une séance terminée vide n'a rien à dire
+    return {
+      id: z.id,
+      d: z.d,
+      t0: isFinite(Number(z.t0)) ? Number(z.t0) : 0,
+      t1: isFinite(Number(z.t1)) ? Number(z.t1) : 0,
+      n: typeof z.n === 'string' && z.n ? z.n : 'Séance',
+      s: series,
+      p: Array.isArray(z.p) ? z.p.filter(function (x) { return typeof x === 'string'; }) : [],
+      note: typeof z.note === 'string' ? z.note : ''
+    };
+  }
+
+  /**
+   * Charge et NETTOIE l'état.
+   * Une validation limitée aux conteneurs de premier niveau ne protège de rien :
+   * une seule séance malformée dans le tableau faisait planter le rendu, donc
+   * un écran blanc à chaque lancement, sans aucun moyen de récupérer le reste.
+   * Ici chaque séance et chaque série est vérifiée ; ce qui est irrécupérable
+   * est écarté, et le reste survit.
+   */
   function loadState() {
     var s;
-    try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
+    brutAvantNettoyage = null;
+    try { brutAvantNettoyage = localStorage.getItem(KEY); } catch (e) { }
+    try { s = JSON.parse(brutAvantNettoyage || 'null'); } catch (e) { s = null; }
     if (!s || typeof s !== 'object') s = defState();
 
-    // Migration douce : on complète, on ne retire JAMAIS.
+    // Migration douce : on complète, on ne retire JAMAIS une clé de réglage.
     var d = defState();
     if (!s.set || typeof s.set !== 'object') s.set = {};
     for (var k in d.set) if (!(k in s.set)) s.set[k] = d.set[k];
-    if (!Array.isArray(s.ses)) s.ses = [];
-    if (!Array.isArray(s.bw)) s.bw = [];
+
+    var brutes = Array.isArray(s.ses) ? s.ses : [];
+    var propres = [], i, z;
+    for (i = 0; i < brutes.length; i++) { z = saineSeance(brutes[i], false); if (z) propres.push(z); }
+    propres.sort(function (a, b) { return (a.t0 || 0) - (b.t0 || 0); });
+    if (propres.length !== brutes.length) {
+      ecartees = brutes.length - propres.length;   // signalé à l'utilisateur au démarrage
+    }
+    s.ses = propres;
+
+    s.cur = saineSeance(s.cur, true);
+    s.bw = (Array.isArray(s.bw) ? s.bw : []).filter(function (b) {
+      return b && /^\d{4}-\d{2}-\d{2}$/.test(b.d) && Number(b.w) > 0;
+    }).map(function (b) { return { d: b.d, w: Number(b.w) }; });
+
     if (!s.ex || typeof s.ex !== 'object') s.ex = {};
-    if (s.cur && !Array.isArray(s.cur.s)) s.cur = null;
-    if (s.cur && !Array.isArray(s.cur.p)) s.cur.p = [];
+    for (var id in s.ex) {
+      var e2 = s.ex[id];
+      if (!e2 || typeof e2.n !== 'string' || !e2.n) { delete s.ex[id]; continue; }
+      e2.id = id;
+      if (!CAT.GROUPS[e2.g]) e2.g = 'full';
+      if (!CAT.EQUIP[e2.eq]) e2.eq = 'db';
+    }
+
     if (!s.rest || typeof s.rest.end !== 'number') s.rest = null;
     s.v = 1;
     return s;
   }
 
-  var saveT = null;
+  var ecartees = 0, brutAvantNettoyage = null;
+
+  var saveT = null, echecEcriture = false;
   function save(now) {
     clearTimeout(saveT);
     var doIt = function () {
-      try { localStorage.setItem(KEY, JSON.stringify(ST)); }
-      catch (e) { toast('Sauvegarde impossible — stockage plein ?', 'alert'); }
+      try {
+        localStorage.setItem(KEY, JSON.stringify(ST));
+        if (echecEcriture) { echecEcriture = false; toast('Sauvegarde rétablie', 'ok'); }
+      } catch (e) {
+        // Un toast de 2 s puis la séance continue dans le vide : inacceptable.
+        // On bloque explicitement jusqu'à ce que l'utilisateur ait exporté.
+        if (echecEcriture) return;
+        echecEcriture = true;
+        askDialog({
+          title: 'Impossible d’enregistrer',
+          text: 'Le stockage du téléphone est plein ou verrouillé. Les séries que tu ajoutes ' +
+            'maintenant ne seront PAS conservées. Exporte immédiatement, puis libère de la place.',
+          ok: 'Exporter maintenant', cancel: 'Continuer quand même'
+        }, function () { doExport(); });
+      }
     };
     if (now) doIt(); else saveT = setTimeout(doIt, 250);
   }
@@ -157,7 +238,16 @@
   function gColor(g) { return (CAT.GROUPS[g] && CAT.GROUPS[g].c) || 'var(--fg3)'; }
   function gName(g) { return (CAT.GROUPS[g] && CAT.GROUPS[g].n) || g; }
 
+  /** Poids de corps à une date donnée. */
   function bwNow(dateStr) { return E.bodyweightAt(ST.bw, dateStr || todayStr(), ST.set.bw); }
+
+  /**
+   * À passer au moteur pour TOUT calcul portant sur plusieurs séances.
+   * Avec un poids scalaire, le moteur recalculerait l'historique entier avec le
+   * poids du jour : un record de tractions établi à 80 kg se réécrivait à 70 kg
+   * dès la pesée suivante, et tout le passé bougeait avec.
+   */
+  function bwAt(dateStr) { return bwNow(dateStr); }
 
   /* ================================================================== */
   /* Retours (son, vibration, toast)                                     */
@@ -229,6 +319,7 @@
    * On repart de l'heure de fin absolue, jamais d'un compteur en mémoire.
    */
   function restStart(sec, gardeFin) {
+    sec = Math.max(1, Math.round(Number(sec) || 0));   // 0 s sonnerait aussitôt
     rest.total = sec;
     rest.end = gardeFin || (Date.now() + sec * 1000);
     ST.rest = { end: rest.end, total: rest.total };
@@ -364,7 +455,7 @@
     }
 
     // Record ? On compare au meilleur AVANT cette série.
-    var prev = E.bestSets(ST.ses.concat([ST.cur]), IX, bwNow())[UI.act];
+    var prev = E.bestSets(ST.ses.concat([ST.cur]), IX, bwAt)[UI.act];
     ST.cur.s.push(s);
     if (ST.cur.p.indexOf(UI.act) < 0) ST.cur.p.push(UI.act);
     save(true);
@@ -407,6 +498,7 @@
 
   /** Libellé de série en texte brut, pour un message. */
   function setLabelPlain(st, ex) {
+    if (ex.sec) return (st.w ? '+' + num(st.w) + ' kg, ' : '') + fmtSec(st.r);
     if (ex.bw && !st.w) return st.r + ' reps';
     if (ex.bw) return '+' + num(st.w) + ' kg x ' + st.r;
     return num(st.w) + ' kg x ' + st.r;
@@ -454,8 +546,13 @@
     $('streak').style.display = st > 0 ? '' : 'none';
     $('streak').title = st > 0 ? st + ' semaine' + (st > 1 ? 's' : '') + ' d\u2019affil\u00e9e avec au moins une s\u00e9ance' : '';
 
-    var nav = $('nav').children, i;
-    for (i = 0; i < nav.length; i++) nav[i].className = nav[i].dataset.tab === UI.tab ? 'on' : '';
+    var nav = $('nav').children, i, actif;
+    for (i = 0; i < nav.length; i++) {
+      actif = nav[i].dataset.tab === UI.tab;
+      nav[i].className = actif ? 'on' : '';
+      if (actif) nav[i].setAttribute('aria-current', 'page');
+      else nav[i].removeAttribute('aria-current');
+    }
 
     var v = $('view');
     if (UI.tab === 'ses') v.innerHTML = viewSession();
@@ -477,7 +574,7 @@
 
   function sessionIdle() {
     var h = '';
-    var wk = E.weekSeries(ST.ses, IX, bwNow());
+    var wk = E.weekSeries(ST.ses, IX, bwAt);
     var cur = wk.length && wk[wk.length - 1].k === E.weekKey(todayStr()) ? wk[wk.length - 1] : null;
 
     h += '<div class="card">' +
@@ -522,7 +619,7 @@
 
   function kpi(n, l, delta) {
     return '<div class="kpi"><div class="n">' + esc(n) + '</div><div class="l">' + esc(l) + '</div>' +
-      (delta ? '<div class="d ' + (delta.up ? 'up' : 'dn') + '">' + esc(delta.txt) + '</div>' : '') + '</div>';
+      (delta ? '<div class="d ' + esc(delta.cls) + '">' + esc(delta.txt) + '</div>' : '') + '</div>';
   }
 
   function sessionActive() {
@@ -539,7 +636,8 @@
     h += '<div class="sesline">' +
       '<span>' + st.sets + ' série' + (st.sets > 1 ? 's' : '') + '</span><span>·</span>' +
       '<span>' + E.fmtVol(st.vol) + '</span><span>·</span>' +
-      '<span>' + st.reps + ' reps</span></div>';
+      '<span>' + st.reps + ' reps</span>' +
+      (st.sec ? '<span>·</span><span>' + fmtSec(st.sec) + ' de gainage</span>' : '') + '</div>';
 
     var exs = sessionExercises(ses), i;
     for (i = 0; i < exs.length; i++) h += exBlock(ses, exs[i]);
@@ -583,7 +681,9 @@
       var lp = E.lastPerf(ST.ses, exId, ses.id);
       if (lp) {
         h += '<div class="lastref">Dernière fois (' + esc(relDate(lp.d)) + ') : ' +
-          lp.sets.map(function (x) { return num(x.w) + '×' + x.r; }).join(', ') + '</div>';
+          lp.sets.map(function (x) {
+            return ex.sec ? fmtSec(x.r) : num(x.w) + '×' + x.r;
+          }).join(', ') + '</div>';
       }
       h += pad(ex);
       if (ST.set.cues && ex.c) h += '<div class="cue">' + ico('bulb', 16) + '<span>' + esc(ex.c) + '</span></div>';
@@ -593,7 +693,21 @@
     return h;
   }
 
+  /** Unité affichée d'une série : secondes pour un gainage, répétitions sinon. */
+  function unite(ex, r) { return ex.sec ? fmtSec(r) : String(r); }
+
+  /** 45 -> « 45 s », 90 -> « 90 s », 180 -> « 3 min ».
+   *  Un gainage se compte en secondes jusqu'à deux minutes : c'est ainsi qu'on
+   *  l'annonce à voix haute, et « 90 s » se lit plus vite que « 1 min 30 ». */
+  function fmtSec(v) {
+    v = Math.max(0, Math.round(Number(v) || 0));
+    if (v < 120) return v + ' s';
+    var m = Math.floor(v / 60), r = v % 60;
+    return m + ' min' + (r ? ' ' + r + ' s' : '');
+  }
+
   function setLabel(s, ex) {
+    if (ex.sec) return (s.w ? '+' + num(s.w) + ' kg · ' : '') + fmtSec(s.r);
     if (ex.bw && !s.w) return s.r + ' reps';
     if (ex.bw) return '+' + num(s.w) + ' kg × ' + s.r;
     return num(s.w) + ' kg × ' + s.r + (ex.uni ? ' <span class="tiny muted">/côté</span>' : '');
@@ -606,22 +720,25 @@
     h += '<div class="stepper">' +
       '<div class="lab">' + (ex.bw ? 'Lest' : 'Charge') + '</div>' +
       '<button class="mn" data-act="w-" data-step="' + step + '" aria-label="Diminuer la charge">' + ico('minus') + '</button>' +
-      '<input class="val" id="padW" type="number" inputmode="decimal" step="0.25" enterkeyhint="done" ' +
-      'aria-label="Charge en kilos" value="' + dec(UI.w) + '">' +
+      '<input class="val" id="padW" type="text" inputmode="decimal" enterkeyhint="done" ' +
+      'autocomplete="off" aria-label="Charge en kilos" value="' + num(UI.w) + '">' +
       '<button class="pl" data-act="w+" data-step="' + step + '" aria-label="Augmenter la charge">' + ico('plus') + '</button>' +
       '</div>';
 
     if (ex.bar) h += '<div class="plates" id="padPlates">' + platesLine(UI.w) + '</div>';
     else if (ex.uni) h += '<div class="plates">charge d’UN côté — enregistre une série par côté</div>';
+    else if (ex.sec) h += '<div class="plates">durée en secondes — hors tonnage, le record est le temps tenu</div>';
     else if (ex.bw) h += '<div class="plates">0 = poids du corps seul' +
       ' (' + num(bwNow()) + ' kg pris en compte)</div>';
 
     h += '<div class="stepper">' +
-      '<div class="lab">Reps</div>' +
-      '<button class="mn" data-act="r-" aria-label="Une répétition de moins">' + ico('minus') + '</button>' +
-      '<input class="val" id="padR" type="number" inputmode="numeric" step="1" enterkeyhint="done" ' +
-      'aria-label="Nombre de répétitions" value="' + (UI.r | 0) + '">' +
-      '<button class="pl" data-act="r+" aria-label="Une répétition de plus">' + ico('plus') + '</button>' +
+      '<div class="lab">' + (ex.sec ? 'Durée' : 'Reps') + '</div>' +
+      '<button class="mn" data-act="r-" data-step="' + (ex.sec ? 5 : 1) + '" aria-label="' +
+      (ex.sec ? 'Cinq secondes de moins' : 'Une répétition de moins') + '">' + ico('minus') + '</button>' +
+      '<input class="val" id="padR" type="text" inputmode="numeric" enterkeyhint="done" ' +
+      'autocomplete="off" aria-label="Nombre de répétitions" value="' + (UI.r | 0) + '">' +
+      '<button class="pl" data-act="r+" data-step="' + (ex.sec ? 5 : 1) + '" aria-label="' +
+      (ex.sec ? 'Cinq secondes de plus' : 'Une répétition de plus') + '">' + ico('plus') + '</button>' +
       '</div>';
 
     if (ST.set.rpe) {
@@ -719,7 +836,7 @@
         var p = m.split('-');
         h += '<h2 class="mhead">' + esc(MONTHS[+p[1] - 1] + ' ' + p[0]) + '</h2>';
       }
-      st = E.sessionStats(ses, IX, bwNow(ses.d));
+      st = E.sessionStats(ses, IX, bwAt);
       h += '<button class="card seslink" data-act="sesdet" data-id="' + esc(ses.id) + '">' +
         '<div class="row"><span class="grow"><b>' + esc(ses.n) + '</b><br>' +
         '<span class="small muted">' + esc(relDate(ses.d)) + '</span></span>' +
@@ -738,7 +855,7 @@
     var ses = null, i;
     for (i = 0; i < ST.ses.length; i++) if (ST.ses[i].id === id) ses = ST.ses[i];
     if (!ses) return;
-    var st = E.sessionStats(ses, IX, bwNow(ses.d));
+    var st = E.sessionStats(ses, IX, bwAt);
     var exs = sessionExercises(ses);
 
     var h = '<div class="card"><div class="kpis">' +
@@ -756,12 +873,19 @@
         if (!m.s.u) n++;
         h += '<div class="setrow' + (m.s.u ? ' wu' : '') + '">' +
           '<span class="i">' + (m.s.u ? ico('flame', 14) : n) + '</span>' +
-          '<span class="grow v">' + setLabel(m.s, ex) + '</span>' +
-          (m.s.e ? '<span class="tiny muted">RPE ' + m.s.e + '</span>' : '') +
+          '<button class="grow" style="text-align:left" data-act="fix-set" ' +
+          'data-sid="' + esc(ses.id) + '" data-ix="' + m.ix + '">' +
+          '<span class="v">' + setLabel(m.s, ex) + '</span>' +
+          (m.s.e ? ' <span class="tiny muted">RPE ' + m.s.e + '</span>' : '') + '</button>' +
+          '<button class="x" data-act="fix-del" data-sid="' + esc(ses.id) + '" data-ix="' + m.ix + '" ' +
+          'aria-label="Supprimer la série">' + ico('trash', 18) + '</button>' +
           '</div>';
       });
       h += '</div>';
     }
+
+    h += '<div class="hint" style="margin:calc(-1 * var(--s2)) 0 var(--s3)">' +
+      'Touche une série pour la corriger — une faute de frappe fausse les records tant qu’elle est là.</div>';
 
     h += '<div class="card"><label class="small muted">Note de séance</label>' +
       '<textarea id="sesNote" rows="3" placeholder="Sensations, douleurs, remarques…">' + esc(ses.note || '') + '</textarea></div>';
@@ -786,7 +910,7 @@
       return '<div class="empty"><div class="big">' + ico('trend', 44) + '</div>Les courbes apparaîtront après ta première séance terminée.</div>';
     }
     var h = '';
-    var wk = E.weekSeries(ST.ses, IX, bwNow());
+    var wk = E.weekSeries(ST.ses, IX, bwAt);
     var thisK = E.weekKey(todayStr()), prevK = E.weekKey(E.shiftDate(todayStr(), -7));
     var cw = null, pw = null, i;
     for (i = 0; i < wk.length; i++) {
@@ -795,11 +919,18 @@
     }
     var cv = cw ? cw.vol : 0, pv = pw ? pw.vol : 0;
     var dv = pv > 0 ? Math.round(((cv - pv) / pv) * 100) : null;
+    /* Un bond de +45 % de tonnage n'est pas une bonne nouvelle pour quelqu'un qui
+       reprend : c'est le meilleur moyen de se blesser. On ne verdit donc qu'une
+       progression raisonnable, et on signale l'emballement. */
+    var ton = dv === null ? null
+      : dv > 30 ? { cls: 'dn', txt: '+' + dv + ' % — brutal' }
+        : dv >= 0 ? { cls: 'up', txt: '+' + dv + ' %' }
+          : { cls: 'dn', txt: dv + ' %' };
 
     h += '<div class="card"><h2>Cette semaine</h2><div class="kpis">' +
       kpi(cw ? cw.sessions : 0, 'séances') +
       kpi(cw ? cw.sets : 0, 'séries') +
-      kpi(E.fmtVol(cv), 'tonnage', dv === null ? null : { up: dv >= 0, txt: (dv >= 0 ? '+' : '') + dv + '%' }) +
+      kpi(E.fmtVol(cv), 'tonnage', ton) +
       '</div>' +
       '<div class="small muted" style="margin-top:var(--s3)">Semaine précédente : ' + E.fmtVol(pv) + '</div>' +
       '</div>';
@@ -807,12 +938,12 @@
     h += '<div class="card"><h2>Tonnage par semaine</h2><div id="chWeek"></div></div>';
 
     // Progression d'un exercice
-    var best = E.bestSets(ST.ses, IX, bwNow());
+    var best = E.bestSets(ST.ses, IX, bwAt);
     var ids = Object.keys(best);
     ids.sort(function (a, b) { return exName(a).localeCompare(exName(b), 'fr'); });
     if (!UI.proEx || ids.indexOf(UI.proEx) < 0) UI.proEx = mostUsedExercise(ids);
 
-    h += '<div class="card"><h2>Progression</h2>' +
+    h += '<div class="card"><h2>Progression par exercice</h2>' +
       '<select id="proSel" style="margin-bottom:var(--s3)">' +
       ids.map(function (id) {
         return '<option value="' + esc(id) + '"' + (id === UI.proEx ? ' selected' : '') + '>' + esc(exName(id)) + '</option>';
@@ -823,7 +954,7 @@
 
     // Répartition par groupe (4 semaines)
     var since = E.shiftDate(todayStr(), -28);
-    var gv = E.groupVolume(ST.ses, IX, since, bwNow());
+    var gv = E.groupVolume(ST.ses, IX, since, bwAt);
     var gk = Object.keys(gv).sort(function (a, b) { return gv[b] - gv[a]; });
     if (gk.length) {
       var max = gv[gk[0]] || 1;
@@ -841,18 +972,21 @@
     var byDate = ids.slice().sort(function (a, b) { return best[b].d < best[a].d ? -1 : 1; });
     byDate.forEach(function (id) {
       var b = best[id];
+      var exr = exOf(id);
       h += '<div class="rec">' +
-        '<span class="gdot" style="background:' + gColor(exOf(id).g) + '"></span>' +
-        '<span class="grow ellip">' + esc(exName(id)) + '</span>' +
-        '<span class="w">' + num(b.w) + ' × ' + b.r + '</span>' +
-        '<span class="e">1RM ' + num(b.e1rm) + '</span>' +
+        '<span class="gdot" style="background:' + gColor(exr.g) + '"></span>' +
+        '<span class="grow"><span class="ellip" style="display:block">' + esc(exName(id)) + '</span>' +
+        '<span class="tiny muted">' + esc(relDate(b.d)) + '</span></span>' +
+        '<span class="w">' + (exr.sec ? (b.w ? '+' + num(b.w) + ' · ' : '') + fmtSec(b.r)
+          : num(b.w) + ' × ' + b.r) + '</span>' +
+        '<span class="e">' + (exr.sec ? '' : '1RM ' + num(b.e1rm)) + '</span>' +
         '</div>';
     });
     h += '</div>';
 
     // Poids de corps
     h += '<div class="card"><h2>Poids de corps</h2>' +
-      '<div class="row"><input id="bwIn" type="number" inputmode="decimal" step="0.1" placeholder="' + num(bwNow()) + '" class="grow">' +
+      '<div class="row"><input id="bwIn" type="text" inputmode="decimal" autocomplete="off" placeholder="' + num(bwNow()) + '" class="grow">' +
       '<button class="btn" data-act="bwadd">Noter</button></div>';
     if (ST.bw.length) {
       var sorted = ST.bw.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
@@ -884,7 +1018,7 @@
   function dayMonth(ds) { return ds.slice(8) + '/' + ds.slice(5, 7); }
 
   function drawCharts() {
-    var wk = E.weekSeries(ST.ses, IX, bwNow()).slice(-12);
+    var wk = E.weekSeries(ST.ses, IX, bwAt).slice(-12);
     var box = $('chWeek');
     if (box) box.innerHTML = barChart(wk.map(function (w) {
       return { v: w.vol, l: dayMonth(E.weekStart(w.k)) };
@@ -892,14 +1026,33 @@
 
     var ex = $('chEx');
     if (ex && UI.proEx) {
-      var pts = E.exerciseSeries(ST.ses, UI.proEx, IX, bwNow());
-      ex.innerHTML = lineChart(pts.map(function (p) { return { v: p.e1rm, l: p.d.slice(8) + '/' + p.d.slice(5, 7) }; }));
+      var exo = exOf(UI.proEx);
+      var pts = E.exerciseSeries(ST.ses, UI.proEx, IX, bwAt);
+
+      /* Ce qu'on suit dépend de l'exercice :
+         - gainage        -> la durée tenue ;
+         - poids du corps -> le nombre de répétitions. Suivre un 1RM estimé
+           afficherait « -6,7 kg » simplement parce qu'on a maigri, alors que
+           la performance a progressé ;
+         - le reste       -> le 1RM estimé. */
+      var mode = exo.sec ? 'sec' : (exo.bw && !lesteQuelquePart(pts) ? 'reps' : 'kg');
+      var valeur = function (pp) { return mode === 'reps' ? pp.top.r : pp.e1rm; };
+      var unites = { sec: 's', reps: 'reps', kg: 'kg' };
+
+      ex.innerHTML = lineChart(
+        pts.map(function (p) { return { v: valeur(p), l: dayMonth(p.d) }; }),
+        unites[mode]
+      );
       var note = $('exNote');
       if (note && pts.length) {
         var f = pts[0], l = pts[pts.length - 1];
-        var d = l.e1rm - f.e1rm;
-        note.innerHTML = 'Meilleure série : <b>' + num(l.top.w) + ' kg × ' + l.top.r + '</b> ' + esc(relDate(l.d)) +
-          ' · 1RM estimé ' + (d >= 0 ? '+' : '') + num(d) + ' kg depuis le début' +
+        var d = E.r1(valeur(l) - valeur(f));
+        var evol = mode === 'sec' ? num(d) + ' s tenues'
+          : mode === 'reps' ? num(d) + ' répétitions'
+            : num(d) + ' kg de 1RM estimé';
+        note.innerHTML = 'Meilleure série : <b>' + esc(setLabel(
+          { w: E.r2(l.top.w - (exo.bw ? bwNow(l.d) : 0)), r: l.top.r }, exo)) + '</b> ' + esc(relDate(l.d)) +
+          ' · ' + (d >= 0 ? '+' : '') + evol + ' depuis le début' +
           ' · ' + pts.length + ' séance' + (pts.length > 1 ? 's' : '');
       } else if (note) {
         note.textContent = '';
@@ -912,6 +1065,16 @@
    * L'échelle haute est une valeur ronde RÉELLE (E.niceMax), imprimée sur le
    * graphique : une barre sans repère chiffré ne dit rien.
    */
+  /** Vrai si l'exercice au poids du corps a été lesté au moins une fois :
+   *  dans ce cas la charge redevient l'indicateur pertinent. */
+  function lesteQuelquePart(pts) {
+    var i;
+    for (i = 0; i < pts.length; i++) {
+      if (E.r2(pts[i].top.w - bwNow(pts[i].d)) > 0.01) return true;
+    }
+    return false;
+  }
+
   function barChart(data, lastIsCurrent) {
     if (!data.length) return '<div class="tiny muted">Pas encore de données.</div>';
     var W = 320, H = 138, pb = 20, pt = 14, pl = 2;
@@ -944,7 +1107,8 @@
    * une grille ronde. L'ancienne version imprimait un maximum gonflé de 18 %
    * pour aérer le tracé : le chiffre lu ne correspondait à aucune séance.
    */
-  function lineChart(data) {
+  function lineChart(data, unite) {
+    unite = unite || 'kg';
     if (data.length < 2) {
       return '<div class="tiny muted">Au moins deux séances sont nécessaires pour tracer une courbe.</div>';
     }
@@ -965,7 +1129,7 @@
     var area = d + ' L' + X(data.length - 1).toFixed(1) + ' ' + (pt + ih) + ' L' + X(0).toFixed(1) + ' ' + (pt + ih) + ' Z';
 
     var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
-      'aria-label="1RM estimé, de ' + num(E.r1(bas)) + ' à ' + num(E.r1(haut)) + ' kilos">';
+      'aria-label="Progression, de ' + num(E.r1(bas)) + ' à ' + num(E.r1(haut)) + ' ' + esc(unite) + '">';
     s += '<line class="grid" x1="0" y1="' + pt + '" x2="' + W + '" y2="' + pt + '" stroke-dasharray="3 3"/>';
     s += '<line class="grid" x1="0" y1="' + (pt + ih) + '" x2="' + W + '" y2="' + (pt + ih) + '"/>';
     s += '<path class="ar" d="' + area + '"/><path class="ln" d="' + d + '"/>';
@@ -974,8 +1138,8 @@
         s += '<circle class="pt" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="3"/>';
       }
     });
-    s += '<text class="val" x="2" y="' + (pt - 4) + '">' + num(E.r1(haut)) + ' kg</text>';
-    s += '<text class="val" x="2" y="' + (pt + ih - 4) + '">' + num(E.r1(bas)) + ' kg</text>';
+    s += '<text class="val" x="2" y="' + (pt - 4) + '">' + num(E.r1(haut)) + ' ' + esc(unite) + '</text>';
+    s += '<text class="val" x="2" y="' + (pt + ih - 4) + '">' + num(E.r1(bas)) + ' ' + esc(unite) + '</text>';
     s += '<text x="' + pl + '" y="' + (H - 5) + '">' + esc(data[0].l) + '</text>';
     s += '<text x="' + (W - pr) + '" y="' + (H - 5) + '" text-anchor="end">' + esc(data[data.length - 1].l) + '</text>';
     s += '</svg>';
@@ -1016,25 +1180,39 @@
         'placeholder="' + esc(o.input.placeholder || '') + '" ' +
         'autocomplete="off" enterkeyhint="done">';
     }
+    if (o.inputs) {
+      h += '<div class="drow">' + o.inputs.map(function (f) {
+        return '<div class="dfield"><label class="dlab" for="dlg_' + esc(f.key) + '">' + esc(f.label) + '</label>' +
+          '<input id="dlg_' + esc(f.key) + '" type="text" inputmode="' + esc(f.inputmode || 'decimal') + '" ' +
+          'autocomplete="off" enterkeyhint="done" value="' + esc(f.value) + '"></div>';
+      }).join('') + '</div>';
+    }
     h += '<div class="dacts">' +
       '<button class="btn" data-act="dlg-no">' + esc(o.cancel || 'Annuler') + '</button>' +
       '<button class="btn ' + (o.danger ? 'dgr' : 'pri') + '" data-act="dlg-yes">' + esc(o.ok || 'Confirmer') + '</button>' +
       '</div></div></div>';
     $('dlg').innerHTML = h;
     dlgWord = o.input && o.input.confirmWord ? o.input.confirmWord : null;
-    var f = $('dlgIn');
+    dlgFields = o.inputs || null;
+    var f = $('dlgIn') || (o.inputs && $('dlg_' + o.inputs[0].key));
     if (f) { f.focus(); f.select(); } else {
       var b = $('dlg').querySelector('[data-act="dlg-yes"]');
       if (b) b.focus();
     }
   }
 
-  var dlgWord = null;
+  var dlgWord = null, dlgFields = null;
 
-  function closeDialog(run) {
+  function closeDialog(run, depuisRetour) {
     var cb = dlgOk, f = $('dlgIn'), val = f ? f.value : null;
+    if (dlgFields) {
+      val = {};
+      dlgFields.forEach(function (x) { var e2 = $('dlg_' + x.key); val[x.key] = e2 ? e2.value : ''; });
+    }
+    dlgFields = null;
     dlgOk = null;
     $('dlg').innerHTML = '';
+    if (!depuisRetour) popLayer();
     if (dlgFocusBack && dlgFocusBack.focus) { try { dlgFocusBack.focus(); } catch (e) { } }
     dlgFocusBack = null;
     var word = dlgWord; dlgWord = null;
@@ -1056,10 +1234,11 @@
       '<div class="sbody">' + html + '</div></div>';
   }
 
-  function closeSheet() {
+  function closeSheet(depuisRetour) {
     if (sheetClose) { try { sheetClose(); } catch (e) { } }
     sheetClose = null;
     $('sheet').innerHTML = '';
+    if (!depuisRetour) popLayer();
     render();
   }
 
@@ -1312,26 +1491,52 @@
     toast('Export généré');
   }
 
+  var BAK = 'forge-state-v1-avant-import';
+
   function doImport(file) {
     var fr = new FileReader();
+    fr.onerror = function () { toast('Lecture du fichier impossible', 'alert'); };
     fr.onload = function () {
       var data;
       try { data = JSON.parse(fr.result); } catch (e) { toast('Fichier illisible', 'alert'); return; }
       var st = data && data.state ? data.state : data;
-      if (!st || !Array.isArray(st.ses)) { toast('Ce n’est pas une sauvegarde Forge', 'alert'); return; }
+      if (!st || typeof st !== 'object' || !Array.isArray(st.ses)) {
+        toast('Ce n’est pas une sauvegarde Forge', 'alert'); return;
+      }
+      // On compte ce qui est RÉELLEMENT exploitable avant de proposer quoi que ce soit.
+      var bonnes = st.ses.filter(function (z) { return saineSeance(z, false); }).length;
+      if (!bonnes && st.ses.length) {
+        toast('Sauvegarde illisible : aucune séance exploitable', 'alert'); return;
+      }
       askDialog({
         title: 'Restaurer cette sauvegarde ?',
-        text: 'Le fichier contient ' + st.ses.length + ' séance' + (st.ses.length > 1 ? 's' : '') +
+        text: bonnes + ' séance' + (bonnes > 1 ? 's' : '') + ' exploitable' + (bonnes > 1 ? 's' : '') +
+          ' dans le fichier' +
+          (st.ses.length !== bonnes ? ' (' + (st.ses.length - bonnes) + ' illisible' +
+            (st.ses.length - bonnes > 1 ? 's' : '') + ')' : '') +
           '. Tes ' + ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
-          ' actuelle' + (ST.ses.length > 1 ? 's' : '') + ' seront remplacées.',
+          ' actuelle' + (ST.ses.length > 1 ? 's' : '') + ' seront remplacées — ' +
+          'une copie de secours est conservée dans le téléphone.',
         ok: 'Restaurer', danger: true
       }, function () {
-        localStorage.setItem(KEY, JSON.stringify(st));
+        // Filet : l'état actuel est mis de côté AVANT d'être écrasé.
+        try { localStorage.setItem(BAK, localStorage.getItem(KEY) || ''); } catch (e) { }
+        try {
+          localStorage.setItem(KEY, JSON.stringify(st));
+        } catch (e) {
+          toast('Écriture impossible : rien n’a été modifié', 'alert'); return;
+        }
         ST = loadState();
         reindex(); applyTheme();
         sheetClose = null;
         closeSheet();
-        toast('Sauvegarde restaurée', 'ok');
+        toast(ST.ses.length + ' séances restaurées', 'ok', function () {
+          var av = localStorage.getItem(BAK);
+          if (av === null) return;
+          localStorage.setItem(KEY, av);
+          ST = loadState(); reindex(); applyTheme(); render();
+          toast('Import annulé', 'ok');
+        });
       });
     };
     fr.readAsText(file);
@@ -1386,7 +1591,7 @@
       if (!src) return;
       var go = function () {
         newSession(sessionExercises(src), src.n);
-        sheetClose = null; closeSheet();
+        closeSheet();   // exécute sheetClose : la note tapée dans le détail est enregistrée
         UI.tab = 'ses';
         render();
       };
@@ -1430,7 +1635,8 @@
     }
     if (a === 'r-' || a === 'r+') {
       readPad();
-      UI.r = Math.max(1, (UI.r | 0) + (a === 'r+' ? 1 : -1));
+      var ps = parseInt(t.dataset.step, 10) || 1;
+      UI.r = Math.max(1, (UI.r | 0) + (a === 'r+' ? ps : -ps));
       syncPad();
       return;
     }
@@ -1461,6 +1667,51 @@
 
     /* --- historique --- */
     if (a === 'sesdet') { sessionDetail(t.dataset.id); return; }
+
+    if (a === 'fix-set' || a === 'fix-del') {
+      var fs = null, fi = +t.dataset.ix, k;
+      for (k = 0; k < ST.ses.length; k++) if (ST.ses[k].id === t.dataset.sid) fs = ST.ses[k];
+      if (!fs || !fs.s[fi]) return;
+      var cible = fs.s[fi], cex = exOf(cible.x);
+
+      if (a === 'fix-del') {
+        var copie = fs.s[fi];
+        fs.s.splice(fi, 1);
+        if (!fs.s.length) {                       // plus aucune série : la séance n'a plus de sens
+          ST.ses = ST.ses.filter(function (z) { return z.id !== fs.id; });
+          sheetClose = null; closeSheet();
+        } else {
+          save(true); sessionDetail(fs.id);
+        }
+        save(true);
+        toast('Série supprimée', null, function () {
+          if (ST.ses.indexOf(fs) < 0) ST.ses.push(fs);
+          fs.s.splice(Math.min(fi, fs.s.length), 0, copie);
+          ST.ses.sort(function (x, y) { return (x.t0 || 0) - (y.t0 || 0); });
+          save(true); sessionDetail(fs.id);
+          toast('Série rétablie', 'ok');
+        });
+        return;
+      }
+
+      askDialog({
+        title: 'Corriger la série',
+        text: exName(cible.x) + ' — ' + longDate(fs.d),
+        ok: 'Enregistrer',
+        inputs: [
+          { key: 'w', label: cex.sec ? 'Lest (kg)' : (cex.bw ? 'Lest (kg)' : 'Charge (kg)'), value: num(cible.w) },
+          { key: 'r', label: cex.sec ? 'Durée (s)' : 'Répétitions', value: String(cible.r), inputmode: 'numeric' }
+        ]
+      }, function (v) {
+        var nw = Math.max(0, parseFloat(String(v.w).replace(',', '.').replace(/[^0-9.]/g, '')) || 0);
+        var nr = Math.max(0, parseInt(String(v.r).replace(/[^0-9]/g, ''), 10) || 0);
+        if (nr <= 0) { toast('Valeur invalide : rien n’a été modifié', 'alert'); return; }
+        cible.w = E.r2(nw); cible.r = nr;
+        save(true); sessionDetail(fs.id);
+        toast('Série corrigée', 'ok');
+      });
+      return;
+    }
     if (a === 'delses') {
       var delId = t.dataset.id;
       askDialog({
@@ -1478,7 +1729,7 @@
 
     /* --- progrès --- */
     if (a === 'bwadd') {
-      var el = $('bwIn'), w = parseFloat(el && el.value);
+      var el = $('bwIn'), w = parseFloat(String(el ? el.value : '').replace(',', '.'));
       if (!(w > 0)) { toast('Indique un poids'); return; }
       var d = todayStr();
       ST.bw = ST.bw.filter(function (b) { return b.d !== d; });
@@ -1555,8 +1806,8 @@
     var w = $('padW'), r = $('padR');
     // Un champ vidé vaut 0, jamais « l'ancienne valeur » : sinon on enregistre
     // en silence un chiffre différent de celui affiché.
-    if (w) UI.w = Math.max(0, parseFloat(String(w.value).replace(',', '.')) || 0);
-    if (r) UI.r = Math.max(0, parseInt(r.value, 10) || 0);
+    if (w) UI.w = Math.max(0, parseFloat(String(w.value).replace(',', '.').replace(/[^0-9.]/g, '')) || 0);
+    if (r) UI.r = Math.max(0, parseInt(String(r.value).replace(/[^0-9]/g, ''), 10) || 0);
   }
 
   /** Le bouton Valider est désactivé tant que la saisie n'a pas de sens. */
@@ -1568,7 +1819,7 @@
   /** Réécrit les champs du pavé sans redessiner toute la vue. */
   function syncPad() {
     var w = $('padW'), r = $('padR'), pl = $('padPlates');
-    if (w) w.value = dec(UI.w);
+    if (w) w.value = num(UI.w);
     if (r) r.value = UI.r | 0;
     if (pl) pl.innerHTML = platesLine(UI.w);
   }
@@ -1614,12 +1865,25 @@
 
   /* Bouton retour d'Android : referme la couche ouverte au lieu de quitter l'app. */
   window.addEventListener('popstate', function () {
-    if ($('dlg').innerHTML) { closeDialog(false); pushLayer(); return; }
-    if ($('sheet').innerHTML) { closeSheet(); pushLayer(); }
+    if (retourInterne) { retourInterne = false; return; }   // notre propre fermeture
+    if ($('dlg').innerHTML) { closeDialog(false, true); return; }
+    if ($('sheet').innerHTML) { closeSheet(true); return; }
   });
 
+  /* Chaque couche ouverte empile une entrée d'historique, consommée à sa
+     fermeture. Sans le retrait, le bouton Retour d'Android n'avait plus d'effet
+     visible pendant autant d'appuis que de feuilles ouvertes depuis le lancement. */
   function pushLayer() {
     try { history.pushState({ forge: 1 }, ''); } catch (e) { /* sans effet */ }
+  }
+  var retourInterne = false;
+
+  function popLayer() {
+    // history.back() déclenche un popstate. Sans ce drapeau, fermer un dialogue
+    // ouvert DEPUIS une feuille refermait aussi la feuille dessous : le popstate
+    // voyait la feuille encore ouverte et la prenait pour la couche à fermer.
+    retourInterne = true;
+    try { history.back(); } catch (e) { retourInterne = false; }
   }
 
   window.addEventListener('beforeunload', function () { save(true); });
@@ -1635,6 +1899,46 @@
   }
 
   /* ================================================================== */
+  /* Filet de sécurité                                                   */
+  /* ================================================================== */
+
+  /**
+   * Une exception pendant le rendu laissait un écran vide et muet : plus aucune
+   * commande, et surtout aucun moyen d'exporter avant de tenter quoi que ce soit.
+   * On affiche donc un écran de secours dont le SEUL rôle est de sauver les données.
+   */
+  var filetArme = false;
+  function ecranDeSecours(err) {
+    if (filetArme) return;
+    filetArme = true;
+    try { restStop(); } catch (e) { }
+    document.body.innerHTML =
+      '<main><div class="card"><h2>Forge s’est arrêtée</h2>' +
+      '<p class="small muted">Tes séances sont toujours dans ce téléphone. ' +
+      '<b>Exporte-les maintenant</b>, avant toute autre manipulation.</p>' +
+      '<button class="btn pri big" id="secExport">Exporter la sauvegarde</button>' +
+      '<div class="sp-2"></div>' +
+      '<button class="btn big" id="secReload">Relancer l’application</button>' +
+      '<div class="hint">Détail technique : ' + esc(String((err && err.message) || err || '')) + '</div>' +
+      '</div></main>';
+    var b1 = $('secExport'), b2 = $('secReload');
+    if (b1) b1.onclick = function () {
+      try { doExport(); }
+      catch (e) {
+        // Dernier recours : l'état brut, sans passer par le code applicatif.
+        var blob = new Blob([localStorage.getItem(KEY) || '{}'], { type: 'application/json' });
+        var u = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = u; a.download = 'forge-secours-' + todayStr() + '.json';
+        document.body.appendChild(a); a.click();
+      }
+    };
+    if (b2) b2.onclick = function () { location.reload(); };
+  }
+
+  window.addEventListener('error', function (ev) { ecranDeSecours(ev.error || ev.message); });
+  window.addEventListener('unhandledrejection', function (ev) { ecranDeSecours(ev.reason); });
+
+  /* ================================================================== */
   /* Démarrage                                                           */
   /* ================================================================== */
 
@@ -1647,6 +1951,44 @@
     if (UI.act) prefill(UI.act);
     wakeLock(true);
   }
+  /* Ce qui a été écarté au chargement doit l'être aussi dans le stockage :
+     sinon la même saleté est relue à chaque lancement, et un jour un correctif
+     de lecture la laissera repasser. On garde une copie brute avant d'écrire. */
+  if (ecartees) {
+    try { if (brutAvantNettoyage) localStorage.setItem('forge-state-v1-avant-nettoyage', brutAvantNettoyage); }
+    catch (e) { /* pas de place : tant pis pour la copie, on nettoie quand même */ }
+    save(true);
+  }
+
   restResume();
   render();
+
+  /* Séance laissée ouverte un autre jour : sans cela, les séries du lendemain
+     sont datées de la veille et le chrono affiche une durée absurde. */
+  if (ST.cur && ST.cur.d !== todayStr()) {
+    (function (ancienne) {
+      askDialog({
+        title: 'Séance du ' + longDate(ancienne.d) + ' encore ouverte',
+        text: ancienne.s.length + ' série' + (ancienne.s.length > 1 ? 's' : '') +
+          ' enregistrée' + (ancienne.s.length > 1 ? 's' : '') +
+          '. La clôturer à sa date, ou la reprendre telle quelle ?',
+        ok: 'La clôturer', cancel: 'La reprendre'
+      }, function () {
+        if (!ST.cur || ST.cur.id !== ancienne.id) return;
+        var dernier = ST.cur.s.length ? ST.cur.s[ST.cur.s.length - 1].t : 0;
+        ST.cur.t1 = dernier > ST.cur.t0 ? dernier : ST.cur.t0;   // pas 14 h de séance
+        if (ST.cur.s.length) {
+          ST.ses.push(ST.cur);
+          ST.ses.sort(function (a, b) { return (a.t0 || 0) - (b.t0 || 0); });
+        }
+        ST.cur = null; UI.act = null;
+        restStop(); wakeLock(false);
+        save(true); render();
+        toast('Séance clôturée', 'ok');
+      });
+    })(ST.cur);
+  } else if (ecartees) {
+    toast(ecartees + ' entrée' + (ecartees > 1 ? 's' : '') + ' illisible' +
+      (ecartees > 1 ? 's' : '') + ' écartée' + (ecartees > 1 ? 's' : ''), 'alert');
+  }
 })();
