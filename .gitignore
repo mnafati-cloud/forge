@@ -1,0 +1,19 @@
+# Données personnelles — ne JAMAIS pousser dans ce dépôt public.
+forge-export-*.json
+*-export-*.json
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Python (outils)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (aucune dépendance, mais au cas où)
+node_modules/

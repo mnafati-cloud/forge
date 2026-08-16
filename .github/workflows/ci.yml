@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Tests du moteur
+        run: node --test tests/*.test.mjs
+
+      - name: Syntaxe de tous les JS de l'app
+        run: |
+          for f in docs/*.js; do
+            echo "node --check $f"
+            node --check "$f"
+          done
+
+      - name: JSON valide
+        run: node -e "JSON.parse(require('fs').readFileSync('docs/manifest.json','utf8'))"
+
+      - name: Le cache du service worker a bien été bumpé
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff --quiet "origin/${{ github.base_ref }}" -- docs/; then
+            echo "docs/ inchangé — rien à vérifier"
+            exit 0
+          fi
+          old=$(git show "origin/${{ github.base_ref }}:docs/sw.js" | grep -o "forge-v[0-9]*" | head -1)
+          new=$(grep -o "forge-v[0-9]*" docs/sw.js | head -1)
+          echo "CACHE: $old -> $new"
+          if [ "$old" = "$new" ]; then
+            echo "::error::docs/ a changé mais CACHE n'a pas été incrémenté dans docs/sw.js"
+            exit 1
+          fi

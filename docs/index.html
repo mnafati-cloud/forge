@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Forge</title>
+<meta name="description" content="Suivi de musculation à la maison — séances, charges, progression.">
+<meta name="theme-color" content="#14110f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="style.css">
+<script>
+/* Thème appliqué AVANT le rendu : évite le flash clair au lancement.
+   Seul endroit hors app.js qui touche au localStorage, et uniquement en lecture. */
+(function () {
+  try {
+    var raw = localStorage.getItem('forge-state-v1');
+    var t = raw ? (JSON.parse(raw).set || {}).theme : 'auto';
+    if (t !== 'dark' && t !== 'light') {
+      t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* état illisible : on garde le thème sombre par défaut */ }
+})();
+</script>
+</head>
+<body>
+
+<header class="hd">
+  <h1>Forge</h1>
+  <span class="sp"></span>
+  <span class="streak" id="streak"></span>
+  <button class="icobtn" id="btnSet" aria-label="Réglages">⚙️</button>
+</header>
+
+<main id="view"></main>
+
+<nav class="nav" id="nav">
+  <button data-tab="ses" class="on"><span class="ic">🏋️</span>Séance</button>
+  <button data-tab="his"><span class="ic">📓</span>Historique</button>
+  <button data-tab="pro"><span class="ic">📈</span>Progrès</button>
+</nav>
+
+<div id="rest"></div>
+<div id="sheet"></div>
+<div id="toast"></div>
+
+<script src="exercises.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* hors-ligne : sans effet */ });
+  });
+}
+</script>
+</body>
+</html>
