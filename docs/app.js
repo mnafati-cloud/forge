@@ -55,7 +55,11 @@
     chevronRight: '<path d="M9.75 6.5l5.5 5.5-5.5 5.5"/>',
     trash: '<path d="M4.25 6.5h15.5M9.75 6.5V3.75h4.5V6.5M6.5 6.5l.9 13.75h9.2l.9-13.75M10 10.5v6M14 10.5v6"/>',
     scale: '<path d="M4 20.25h16L17.4 9.5H6.6z"/><circle cx="12" cy="5.75" r="2.5"/>',
-    note: '<path d="M5.5 3.75h9L18.5 8v12.25h-13z"/><path d="M14.25 3.75V8h4.25M8.75 12.5h6.5M8.75 16h4.5"/>'
+    note: '<path d="M5.5 3.75h9L18.5 8v12.25h-13z"/><path d="M14.25 3.75V8h4.25M8.75 12.5h6.5M8.75 16h4.5"/>',
+    flag: '<path d="M5.5 21V3.5M5.5 4.5h11l-2 3.5 2 3.5h-11"/>',
+    cloud: '<path d="M7 19.25a4.25 4.25 0 0 1-.3-8.49A5.5 5.5 0 0 1 17.4 10.4a3.9 3.9 0 0 1-.4 8.85z"/>',
+    cloudUp: '<path d="M7 18.25a4.25 4.25 0 0 1-.3-8.49A5.5 5.5 0 0 1 17.4 9.4a3.9 3.9 0 0 1 .1 7.8"/><path d="M12 21v-8M9 15.5l3-3 3 3"/>',
+    cloudDown: '<path d="M7 18.25a4.25 4.25 0 0 1-.3-8.49A5.5 5.5 0 0 1 17.4 9.4a3.9 3.9 0 0 1 .1 7.8"/><path d="M12 13v8M9 18.5l3 3 3-3"/>'
   };
 
   /** Icône en ligne. `cls` permet de la colorer via une classe existante. */
@@ -112,7 +116,11 @@
   var ST = null;
 
   function defState() {
-    return { v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)), ses: [], cur: null, ex: {}, bw: [], rest: null };
+    return {
+      v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)),
+      ses: [], cur: null, ex: {}, bw: [], rest: null,
+      reports: [], lastCloud: '', lastCloudTs: 0
+    };
   }
 
   /** Une série exploitable, ou null. Une entrée douteuse est écartée, pas devinée. */
@@ -196,6 +204,11 @@
     }
 
     if (!s.rest || typeof s.rest.end !== 'number') s.rest = null;
+    s.reports = (Array.isArray(s.reports) ? s.reports : []).filter(function (r) {
+      return r && typeof r.txt === 'string' && r.txt;
+    }).slice(-100);
+    if (typeof s.lastCloud !== 'string') s.lastCloud = '';
+    if (typeof s.lastCloudTs !== 'number') s.lastCloudTs = 0;
     s.v = 1;
     return s;
   }
@@ -533,6 +546,7 @@
       restStop(); wakeLock(false);
       save(true); render();
       toast('Séance enregistrée', 'ok');
+      autoCloudBackup(true);                   // impératif : la séance part dans le cloud
     });
   }
 
@@ -547,6 +561,7 @@
     $('streak').style.display = st > 0 ? '' : 'none';
     $('streak').title = st > 0 ? st + ' semaine' + (st > 1 ? 's' : '') + ' d\u2019affil\u00e9e avec au moins une s\u00e9ance' : '';
 
+    majBoutonRapport();
     var nav = $('nav').children, i, actif;
     for (i = 0; i < nav.length; i++) {
       actif = nav[i].dataset.tab === UI.tab;
@@ -1393,6 +1408,7 @@
       '<div class="hint">Le pas passe automatiquement au plus petit incrément possible sur la barre pour les exercices à la barre.</div></div>' +
       toggle('stRpe', 'Noter le RPE', 'Une ligne de boutons 6→10 après chaque série (difficulté ressentie).', s.rpe) +
       toggle('stCues', 'Rappels techniques', 'Affiche le point clé de forme sous l’exercice actif.', s.cues) +
+      toggle('stReport', 'Bouton « signaler »', 'Un drapeau dans l’en-tête pour noter un souci sans quitter la séance.', s.report) +
       '</div>';
 
     h += '<div class="card"><h2>Repos</h2>' +
@@ -1423,9 +1439,43 @@
       }).join('') + '</select></div>' +
       '</div>';
 
-    h += '<div class="card"><h2>Données</h2>' +
-      '<div class="small muted" style="margin-bottom:var(--s3)">Tout est stocké dans ce téléphone, et nulle part ailleurs. ' +
-      '<b>Exporte régulièrement</b> : effacer les données du site effacerait toute la progression.</div>' +
+    var jeton = ghToken();
+    h += '<div class="card"><h2>Sauvegarde cloud</h2>' +
+      '<div class="small muted" style="margin-bottom:var(--s3)">' +
+      (jeton
+        ? 'Ta progression part toute seule dans le dépôt privé <b>' + esc(GH_REPO) + '</b> ' +
+          '(dossier <b>' + esc(GH_DIR) + '</b>) à la fin de chaque séance. C’est ta vraie sauvegarde, ' +
+          'et c’est aussi ce que je lis quand tu me demandes de regarder.'
+        : 'Aucun jeton trouvé. Colle un jeton GitHub à portée restreinte (dépôt ' + esc(GH_REPO) +
+          ', permission Contents : lecture et écriture) pour activer la sauvegarde automatique.') +
+      '</div>' +
+      (jeton && !ghTokenPropre()
+        ? '<div class="hint" style="margin:calc(-1 * var(--s2)) 0 var(--s3)">Jeton réutilisé depuis Sori : ' +
+          'les deux applications partagent le même domaine, donc le même stockage local. ' +
+          'Rien à saisir.</div>'
+        : '') +
+      '<div class="field"><label for="ghtok">Jeton d’accès</label>' +
+      '<input id="ghtok" type="password" autocomplete="off" placeholder="' +
+      (jeton ? '•••• configuré ••••' : 'github_pat_…') + '"></div>' +
+      '<div class="row">' +
+      '<button class="btn grow" data-act="cloud-up"' + (jeton ? '' : ' disabled') + '>' +
+      ico('cloudUp', 20) + 'Sauvegarder</button>' +
+      '<button class="btn grow" data-act="cloud-down"' + (jeton ? '' : ' disabled') + '>' +
+      ico('cloudDown', 20) + 'Restaurer</button></div>' +
+      '<div class="hint" id="cloudstatus">' +
+      (jeton
+        ? (ST.lastCloud ? 'Dernière sauvegarde : ' + esc(relDate(ST.lastCloud)) + '.'
+                        : 'Jeton en place — aucune sauvegarde encore envoyée.')
+        : 'Le jeton reste sur ce téléphone et n’entre jamais dans un export.') +
+      ((ST.reports || []).length ? ' · ' + ST.reports.length + ' rapport' +
+        (ST.reports.length > 1 ? 's' : '') + ' joint' + (ST.reports.length > 1 ? 's' : '') : '') +
+      '</div>' +
+      toggle('stCloud', 'Envoi automatique', 'À la fin de chaque séance, au plus une fois toutes les 5 minutes.', s.cloud) +
+      '</div>';
+
+    h += '<div class="card"><h2>Sauvegarde fichier</h2>' +
+      '<div class="small muted" style="margin-bottom:var(--s3)">Filet de secours hors-ligne. ' +
+      'La progression vit dans ce téléphone : effacer les données du site l’effacerait entièrement.</div>' +
       '<button class="btn big" data-act="export">' + ico('download', 21) + 'Exporter (fichier JSON)</button><div class="sp-2"></div>' +
       '<button class="btn big" data-act="import">' + ico('upload', 21) + 'Importer une sauvegarde</button>' +
       '<input type="file" id="impFile" accept="application/json,.json" class="hide">' +
@@ -1452,15 +1502,22 @@
    * constante du code : c'est la seule source qui dise ce qui tourne vraiment
    * sur cet appareil, indépendamment de ce que le dépôt prétend.
    */
+  var verCache = '—';
+
+  function litVersion() {
+    if (typeof caches === 'undefined' || !caches.keys) return Promise.resolve('—');
+    return caches.keys().then(function (cles) {
+      var nums = cles.map(function (k) { return /^forge-v(\d+)$/.exec(k); })
+        .filter(Boolean).map(function (m) { return +m[1]; });
+      verCache = nums.length ? 'v' + Math.max.apply(null, nums) : '—';
+      return verCache;
+    }).catch(function () { return '—'; });
+  }
+
   function majVersion() {
     var av = $('appver');
     if (!av) return;
-    if (typeof caches === 'undefined' || !caches.keys) { av.textContent = '—'; return; }
-    caches.keys().then(function (cles) {
-      var nums = cles.map(function (k) { return /^forge-v(\d+)$/.exec(k); })
-        .filter(Boolean).map(function (m) { return +m[1]; });
-      av.textContent = nums.length ? 'v' + Math.max.apply(null, nums) : '—';
-    }).catch(function () { av.textContent = '—'; });
+    litVersion().then(function (v) { var e2 = $('appver'); if (e2) e2.textContent = v; });
   }
 
   /* ================================================================== */
@@ -1562,6 +1619,8 @@
     v = parseFloat(g('stBar')); if (v >= 0) ST.set.bar = v;
     v = parseFloat(g('stBw')); if (v > 0) ST.set.bw = v;
     v = g('stTheme'); if (v) ST.set.theme = v;
+    var tk = $('ghtok');
+    if (tk && tk.value.trim()) { setGhToken(tk.value); tk.value = ''; }
     applyTheme();
     save(true);
   }
@@ -1642,6 +1701,189 @@
       });
     };
     fr.readAsText(file);
+  }
+
+  /* ================================================================== */
+  /* Sauvegarde cloud — dépôt PRIVÉ, via l'API Contents de GitHub         */
+  /*                                                                     */
+  /* Forge et Sori sont servis par la MÊME origine                        */
+  /* (mnafati-cloud.github.io) : leur localStorage est commun. Le jeton    */
+  /* déjà posé pour Sori est donc lisible ici, et sert tel quel — rien    */
+  /* à reconfigurer sur le téléphone. Forge écrit dans un sous-dossier    */
+  /* du même dépôt privé, sans jamais toucher aux fichiers de Sori.       */
+  /*                                                                     */
+  /* Le jeton vit dans SA PROPRE clé et n'entre JAMAIS dans un export.    */
+  /* ================================================================== */
+
+  var GH_KEY = 'forge-gh-token';
+  var GH_KEY_SORI = 'sori-gh-token';
+  var GH_REPO = 'mnafati-cloud/sori-data';
+  var GH_DIR = 'forge/exports';
+
+  function ghToken() {
+    try { return localStorage.getItem(GH_KEY) || localStorage.getItem(GH_KEY_SORI) || ''; }
+    catch (e) { return ''; }
+  }
+  function ghTokenPropre() {           // vrai si Forge a son propre jeton
+    try { return !!localStorage.getItem(GH_KEY); } catch (e) { return false; }
+  }
+  function setGhToken(t) {
+    try { t && t.trim() ? localStorage.setItem(GH_KEY, t.trim()) : localStorage.removeItem(GH_KEY); }
+    catch (e) { }
+  }
+
+  function exportPayload() {
+    return JSON.stringify({ app: 'forge', v: 1, exportedAt: new Date().toISOString(), state: ST });
+  }
+
+  /** UTF-8 -> base64, ce que l'API Contents attend. */
+  function b64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function ghPut(chemin, contenu, H) {
+    var url = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + chemin;
+    return fetch(url, { headers: H, cache: 'no-store' })
+      .then(function (g) { return g.ok ? g.json().then(function (j) { return j.sha; }) : null; })
+      .catch(function () { return null; })
+      .then(function (sha) {
+        var corps = { message: 'forge backup ' + todayStr(), content: contenu };
+        if (sha) corps.sha = sha;
+        return fetch(url, { method: 'PUT', headers: H, body: JSON.stringify(corps) });
+      })
+      .then(function (r) { return r.ok; });
+  }
+
+  function cloudBackup() {
+    var tok = ghToken();
+    if (!tok) return Promise.resolve({ ok: false, msg: 'aucun jeton configuré' });
+    var contenu = b64(exportPayload());
+    var octets = Math.floor(contenu.length * 3 / 4);
+    if (octets > 700 * 1024) {
+      // L'API Contents plafonne autour d'1 Mo par fichier : on alerte AVANT le mur.
+      toast('Sauvegarde volumineuse (' + Math.round(octets / 1024) + ' Ko)', 'alert');
+    }
+    var H = { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' };
+    return ghPut(GH_DIR + '/latest.json', contenu, H)
+      .then(function (ok1) {
+        if (!ok1) return false;
+        return ghPut(GH_DIR + '/forge-export-' + todayStr() + '.json', contenu, H);
+      })
+      .then(function (ok) {
+        if (!ok) return { ok: false, msg: 'refus de l’API (jeton invalide ou expiré ?)' };
+        ST.lastCloud = todayStr();
+        save(true);
+        return { ok: true };
+      })
+      .catch(function () { return { ok: false, msg: 'hors ligne ?' }; });
+  }
+
+  /**
+   * Sauvegarde silencieuse. Limitée à une tentative toutes les 5 minutes SAUF
+   * si `impératif` : une fin de séance ne doit jamais être sautée sous prétexte
+   * qu'un rapport vient d'être envoyé — c'est précisément le moment où il y a
+   * quelque chose à sauver.
+   */
+  function autoCloudBackup(imperatif) {
+    if (!ST.set.cloud || !ghToken()) return;
+    var maintenant = Date.now();
+    if (!imperatif && maintenant - (ST.lastCloudTs || 0) < 5 * 60 * 1000) return;
+    ST.lastCloudTs = maintenant;
+    save();                                   // consomme la fenêtre AVANT l'appel : anti double-tir
+    cloudBackup().catch(function () { });
+  }
+
+  function cloudRestore() {
+    var tok = ghToken();
+    if (!tok) return Promise.resolve({ ok: false, msg: 'aucun jeton configuré' });
+    var url = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_DIR + '/latest.json';
+    return fetch(url, {
+      headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github.raw' },
+      cache: 'no-store'
+    })
+      .then(function (r) {
+        if (r.status === 404) throw new Error('aucune sauvegarde dans le cloud');
+        if (!r.ok) throw new Error('refus de l’API (' + r.status + ')');
+        return r.json();
+      })
+      .then(function (data) {
+        var st = data && data.state ? data.state : data;
+        if (!st || !Array.isArray(st.ses)) throw new Error('sauvegarde illisible');
+        var bonnes = st.ses.filter(function (z) { return saineSeance(z, false); }).length;
+        return { ok: true, st: st, bonnes: bonnes, at: data.exportedAt || '' };
+      })
+      .catch(function (e) { return { ok: false, msg: e.message || 'hors ligne ?' }; });
+  }
+
+  /* ================================================================== */
+  /* Rapport de problème                                                 */
+  /*                                                                     */
+  /* Les rapports vivent dans ST.reports, partent avec chaque sauvegarde  */
+  /* cloud et chaque export : je les lis à la session suivante. Le        */
+  /* contexte est capturé automatiquement — décrire « où » et « quand »   */
+  /* au clavier, entre deux séries, personne ne le fait.                  */
+  /* ================================================================== */
+
+  function reportCtx() {
+    var c = { onglet: UI.tab, v: verCache };
+    try {
+      if (ST.cur) {
+        c.seance = {
+          n: ST.cur.n, d: ST.cur.d,
+          series: ST.cur.s.length,
+          exercices: sessionExercises(ST.cur)
+        };
+        if (ST.cur.s.length) {
+          var d = ST.cur.s[ST.cur.s.length - 1];
+          c.derniereSerie = { x: d.x, nom: exName(d.x), w: d.w, r: d.r, u: d.u };
+        }
+      }
+      if (UI.act) c.exerciceActif = { id: UI.act, nom: exName(UI.act) };
+      c.total = { seances: ST.ses.length, exercicesPerso: Object.keys(ST.ex).length };
+      if (UI.tab === 'pro' && UI.proEx) c.courbeAffichee = exName(UI.proEx);
+    } catch (e) { c.erreurContexte = String(e && e.message); }
+    return c;
+  }
+
+  function openReport() {
+    var ctx = reportCtx();                    // figé à l'OUVERTURE : l'écran d'où l'on vient
+    var ou = ctx.seance
+      ? 'Séance « ' + ctx.seance.n + ' », ' + ctx.seance.series + ' série' + (ctx.seance.series > 1 ? 's' : '')
+      : 'Onglet ' + ({ ses: 'Séance', his: 'Historique', pro: 'Progrès' }[ctx.onglet] || ctx.onglet);
+    var h = '<div class="card"><div class="small muted">' + esc(ou) +
+      (ctx.exerciceActif ? ' · ' + esc(ctx.exerciceActif.nom) : '') +
+      '</div><div class="hint">L’endroit exact, l’heure et la version sont joints tout seuls.</div></div>' +
+      '<div class="field"><label for="rpttxt">Qu’est-ce qui cloche ?</label>' +
+      '<textarea id="rpttxt" rows="6" placeholder="Décris le souci ou l’idée, même en trois mots."></textarea></div>' +
+      '<button class="btn pri big" data-act="rpt-send">' + ico('check', 21) + 'Enregistrer</button>' +
+      '<div class="hint">Part avec la prochaine sauvegarde et avec chaque export.</div>';
+    var nb = (ST.reports || []).length;
+    if (nb) {
+      h += '<div class="sp-6"></div><h2 class="h2">' + nb + ' rapport' + (nb > 1 ? 's' : '') + ' en attente</h2>';
+      h += (ST.reports || []).slice().reverse().slice(0, 20).map(function (r) {
+        return '<div class="vhitem"><span class="grow"><span class="vhtitle">' + esc(r.txt) + '</span>' +
+          '<span class="vhmeta">' + esc(String(r.d || '').slice(0, 16).replace('T', ' à ')) + '</span></span></div>';
+      }).join('');
+    }
+    h += '<div class="tail"></div>';
+    openSheet('Signaler un problème', h);
+    REPORT_CTX = ctx;
+    var t = $('rpttxt'); if (t) t.focus();
+  }
+
+  var REPORT_CTX = null;
+
+  function sendReport() {
+    var t = $('rpttxt');
+    var txt = t ? t.value.trim() : '';
+    if (!txt) { toast('Écris deux mots d’abord', 'alert'); if (t) t.focus(); return; }
+    ST.reports = (ST.reports || []).slice(-99);
+    ST.reports.push({ d: new Date().toISOString(), ctx: REPORT_CTX || {}, txt: txt });
+    REPORT_CTX = null;
+    save(true);
+    closeSheet();
+    toast('Noté — part à la prochaine sauvegarde', 'ok');
+    autoCloudBackup();
   }
 
   /* ================================================================== */
@@ -1849,13 +2091,15 @@
 
     /* --- réglages --- */
     if (a === 'sw') {
-      var map = { stRpe: 'rpe', stCues: 'cues', stRestAuto: 'restAuto', stSound: 'sound', stVib: 'vibrate' };
+      var map = { stRpe: 'rpe', stCues: 'cues', stRestAuto: 'restAuto', stSound: 'sound',
+        stVib: 'vibrate', stReport: 'report', stCloud: 'cloud' };
       var k = map[t.id];
       if (!k) return;
       ST.set[k] = !ST.set[k];
       t.classList.toggle('on', ST.set[k]);
       t.setAttribute('aria-checked', ST.set[k] ? 'true' : 'false');
       save();
+      if (k === 'report') majBoutonRapport();
       return;
     }
     if (a === 'pl-' || a === 'pl+') {
@@ -1867,6 +2111,55 @@
       if (ed) ed.innerHTML = plateEditor();
       return;
     }
+    if (a === 'rpt-send') { sendReport(); return; }
+
+    if (a === 'cloud-up') {
+      var st1 = $('cloudstatus');
+      if (st1) st1.textContent = 'Envoi en cours…';
+      cloudBackup().then(function (r) {
+        var e2 = $('cloudstatus');
+        if (e2) e2.textContent = r.ok ? 'Sauvegardé dans le cloud aujourd’hui.' : 'Échec : ' + r.msg;
+        toast(r.ok ? 'Sauvegarde envoyée' : 'Échec : ' + r.msg, r.ok ? 'ok' : 'alert');
+      });
+      return;
+    }
+
+    if (a === 'cloud-down') {
+      var st2 = $('cloudstatus');
+      if (st2) st2.textContent = 'Lecture du cloud…';
+      cloudRestore().then(function (r) {
+        var e3 = $('cloudstatus');
+        if (!r.ok) {
+          if (e3) e3.textContent = 'Restauration : ' + r.msg;
+          toast(r.msg, 'alert');
+          return;
+        }
+        if (e3) e3.textContent = 'Sauvegarde trouvée : ' + r.bonnes + ' séance(s).';
+        askDialog({
+          title: 'Restaurer depuis le cloud ?',
+          text: r.bonnes + ' séance' + (r.bonnes > 1 ? 's' : '') + ' dans le cloud' +
+            (r.at ? ', sauvegardée le ' + String(r.at).slice(0, 10) : '') +
+            '. Tes ' + ST.ses.length + ' séance' + (ST.ses.length > 1 ? 's' : '') +
+            ' de ce téléphone seront remplacées.',
+          ok: 'Restaurer', danger: true
+        }, function () {
+          try { localStorage.setItem(BAK, localStorage.getItem(KEY) || ''); } catch (e) { }
+          try { localStorage.setItem(KEY, JSON.stringify(r.st)); }
+          catch (e) { toast('Écriture impossible : rien n’a changé', 'alert'); return; }
+          ST = loadState(); reindex(); applyTheme();
+          sheetClose = null; closeSheet();
+          toast(ST.ses.length + ' séances restaurées', 'ok', function () {
+            var av = localStorage.getItem(BAK);
+            if (av === null) return;
+            localStorage.setItem(KEY, av);
+            ST = loadState(); reindex(); applyTheme(); render();
+            toast('Restauration annulée', 'ok');
+          });
+        });
+      });
+      return;
+    }
+
     if (a === 'verhist') { applySettings(); openVersionHistory(); return; }
     if (a === 'vh-more') { vhLoad(); return; }
     if (a === 'export') { doExport(); return; }
@@ -1953,6 +2246,16 @@
   });
 
   $('btnSet').addEventListener('click', openSettings);
+  $('btnRpt').addEventListener('click', openReport);
+
+  function majBoutonRapport() {
+    var b = $('btnRpt');
+    if (!b) return;
+    b.hidden = ST.set.report !== true;
+    var nb = (ST.reports || []).length;
+    b.classList.toggle('badge', nb > 0);
+    b.setAttribute('aria-label', nb ? 'Signaler un problème (' + nb + ' en attente)' : 'Signaler un problème');
+  }
 
   /* Échap ferme la couche la plus haute ; Entrée valide un dialogue à champ. */
   document.addEventListener('keydown', function (ev) {
@@ -2070,6 +2373,13 @@
     save(true);
   }
 
+  /* Au tout premier lancement, le service worker n'a pas encore rempli son cache :
+     caches.keys() renvoie une liste vide et la version resterait « — ». On relit
+     donc dès qu'il est prêt, pour que le n° soit juste dans les rapports. */
+  litVersion();
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(function () { litVersion(); }).catch(function () { });
+  }
   restResume();
   render();
 

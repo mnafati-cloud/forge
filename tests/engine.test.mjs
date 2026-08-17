@@ -56,7 +56,9 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
     rpe: false,
     theme: 'auto',
     cues: true,
-    bw: 75
+    bw: 75,
+    report: true,
+    cloud: true
   });
 });
 

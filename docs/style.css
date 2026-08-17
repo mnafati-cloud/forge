@@ -667,3 +667,14 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
 .vhtitle { display: block; font-size: var(--t-md); line-height: 1.35; }
 .vhmeta { display: block; font-size: var(--t-xs); color: var(--fg2); margin-top: 3px; }
 .vhlist a { color: var(--acc); }
+
+/* Bouton de signalement : pastille quand des rapports attendent l'envoi */
+.icobtn.badge { position: relative; }
+.icobtn.badge::after {
+  content: '';
+  position: absolute; top: 7px; right: 7px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--acc);
+  border: 2px solid var(--bg3);
+}
+.icobtn[hidden] { display: none; }

@@ -25,8 +25,16 @@ modification non triviale.
    (il reste lisible dans l'historique). La liste `ETERNELS` dans les tests est une sentinelle :
    on n'y retire jamais rien.
 
-3. **Ne jamais pousser d'export personnel.** `forge-export-*.json` contient des données de santé.
-   Ils sont dans `.gitignore` — ne l'affaiblis jamais. Le dépôt est **public**.
+3. **Ne jamais pousser d'export personnel ni de jeton.** `forge-export-*.json` contient des données
+   de santé ; le jeton GitHub vit dans sa propre clé localStorage (`forge-gh-token`) et n'entre
+   JAMAIS dans un export ni dans l'état. Les deux sont dans `.gitignore` — ne l'affaiblis jamais.
+   Le dépôt est **public** ; la sauvegarde, elle, va dans le dépôt **privé** `sori-data`
+   (dossier `forge/exports/`, cf. MAINTENANCE R9).
+
+3bis. **Sori et Forge partagent le localStorage** — même origine `mnafati-cloud.github.io`.
+   D'où deux conséquences : le jeton de Sori sert à Forge sans reconfiguration, et « effacer
+   les données du site » détruirait **les deux applications** d'un coup. Préfixe toujours tes
+   clés par `forge-`.
 
 4. **`node --test tests/*.test.mjs` doit être 100 % vert avant chaque push** (40 tests minimum).
    En plus : `node --check` sur chaque JS de `docs/` modifié (la CI le fait sur tous).

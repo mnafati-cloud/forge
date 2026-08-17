@@ -167,6 +167,34 @@ Il n'existe **aucune** constante de version dans le code, et c'est voulu.
 Rien à maintenir à la main : pas de fichier de changelog à tenir à jour, donc pas de changelog
 qui se périme.
 
+### R9 — Sauvegarde cloud (dépôt privé)
+
+- **Jeton** : clé `forge-gh-token`, **jamais** dans un export ni dans l'état sauvegardé.
+  À défaut, Forge lit `sori-gh-token` : les deux applications sont servies par la MÊME
+  origine (`mnafati-cloud.github.io`), donc partagent le localStorage. Le jeton posé pour
+  Sori marche tel quel, sans rien saisir sur le téléphone.
+- **Destination** : `mnafati-cloud/sori-data`, dossier `forge/exports/` — jamais à la racine,
+  pour ne pas toucher aux fichiers de Sori. Deux écritures : `latest.json` (le point de
+  restauration) et `forge-export-AAAA-MM-JJ.json` (l'instantané du jour).
+- **Déclenchement** : fin de séance (**impératif**, jamais sauté) et envoi d'un rapport
+  (limité à une fois toutes les 5 minutes). Réglage `set.cloud` pour couper.
+- **Garde de taille** : l'API Contents plafonne autour d'1 Mo par fichier ; au-delà de
+  700 Ko un avertissement s'affiche AVANT le mur.
+- **Restauration** : lit `latest.json`, compte les séances réellement exploitables, demande
+  confirmation, met l'état actuel de côté et propose « Annuler » pendant 6 secondes.
+
+> Conséquence de l'origine partagée à ne jamais oublier : « effacer les données du site »
+> sur `mnafati-cloud.github.io` détruit **Sori ET Forge** d'un coup.
+
+### R10 — Rapports de problème
+
+`ST.reports` = `[{d, ctx, txt}]`, plafonné à 100. Le contexte est capturé automatiquement à
+l'ouverture de la feuille : onglet, séance en cours, dernière série validée, exercice actif,
+totaux, et **numéro de version** (lu depuis le cache du service worker). Ils partent avec
+chaque sauvegarde cloud et chaque export — donc je les lis à la session suivante sans que
+l'utilisateur ait à les recopier. Le bouton (drapeau, en-tête) porte une pastille tant que
+des rapports attendent, et se coupe par `set.report`.
+
 ### R8 — Revenir en arrière après une release ratée
 
 ```bash
@@ -332,6 +360,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
       [ ] basculer en thème clair : aucun texte sous 4,5:1
       [ ] console (F12) : aucune erreur
 [ ] git status : aucun forge-export-*.json
+[ ] aucun jeton GitHub dans le diff (grep github_pat_)
 ```
 
 ---

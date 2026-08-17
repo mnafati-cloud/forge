@@ -42,7 +42,9 @@
     rpe: false,
     theme: 'auto',
     cues: true,
-    bw: 75
+    bw: 75,
+    report: true,
+    cloud: true
   };
 
   /* ------------------------------------------------------------------ */
