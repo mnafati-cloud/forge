@@ -51,6 +51,7 @@
     download: '<path d="M12 3.75v11.5M7.25 10.75L12 15.5l4.75-4.75M4 20.25h16"/>',
     upload: '<path d="M12 15.5V4M7.25 8.75L12 4l4.75 4.75M4 20.25h16"/>',
     chevronDown: '<path d="M6.5 9.75l5.5 5.5 5.5-5.5"/>',
+    chevronLeft: '<path d="M14.25 6l-5.5 6 5.5 6"/>',
     chevronRight: '<path d="M9.75 6.5l5.5 5.5-5.5 5.5"/>',
     trash: '<path d="M4.25 6.5h15.5M9.75 6.5V3.75h4.5V6.5M6.5 6.5l.9 13.75h9.2l.9-13.75M10 10.5v6M14 10.5v6"/>',
     scale: '<path d="M4 20.25h16L17.4 9.5H6.6z"/><circle cx="12" cy="5.75" r="2.5"/>',
@@ -1222,21 +1223,29 @@
     }
   }
 
-  var sheetClose = null;
+  var sheetClose = null, sheetBack = null;
 
-  function openSheet(title, html, onClose) {
+  /**
+   * `retour` : si fourni, la croix devient une flèche de retour et appelle cette
+   * fonction — pour une feuille ouverte DEPUIS une autre (réglages -> historique
+   * des versions), qui doit ramener à la précédente et non à l'écran principal.
+   */
+  function openSheet(title, html, onClose, retour) {
     if (!$('sheet').innerHTML) pushLayer();
     sheetClose = onClose || null;
+    sheetBack = retour || null;
     $('sheet').innerHTML =
       '<div class="sheet"><div class="shd">' +
-      '<button class="icobtn" data-act="closesheet" aria-label="Fermer">' + ico('close', 20) + '</button>' +
+      (retour
+        ? '<button class="icobtn" data-act="sheet-back" aria-label="Retour">' + ico('chevronLeft', 20) + '</button>'
+        : '<button class="icobtn" data-act="closesheet" aria-label="Fermer">' + ico('close', 20) + '</button>') +
       '<h2 class="ellip">' + title + '</h2></div>' +
       '<div class="sbody">' + html + '</div></div>';
   }
 
   function closeSheet(depuisRetour) {
     if (sheetClose) { try { sheetClose(); } catch (e) { } }
-    sheetClose = null;
+    sheetClose = null; sheetBack = null;
     $('sheet').innerHTML = '';
     if (!depuisRetour) popLayer();
     render();
@@ -1430,9 +1439,102 @@
       '<button class="btn big danger" data-act="wipe">Tout effacer</button>' +
       '<div class="hint" style="margin-top:var(--s2)">Irréversible. Exporte d’abord.</div></div>';
 
-    h += '<div class="tiny muted center" style="padding:var(--s4) 0 var(--s6)">Forge · PWA hors-ligne · données locales</div>';
+    h += '<div class="verline">Forge — version ' +
+      '<button id="appver" class="verbtn" data-act="verhist" title="Voir l’historique des versions">…</button>' +
+      '</div>';
 
     openSheet('Réglages', h, applySettings);
+    majVersion();
+  }
+
+  /**
+   * La version affichée est le nom du cache ACTIF du service worker, pas une
+   * constante du code : c'est la seule source qui dise ce qui tourne vraiment
+   * sur cet appareil, indépendamment de ce que le dépôt prétend.
+   */
+  function majVersion() {
+    var av = $('appver');
+    if (!av) return;
+    if (typeof caches === 'undefined' || !caches.keys) { av.textContent = '—'; return; }
+    caches.keys().then(function (cles) {
+      var nums = cles.map(function (k) { return /^forge-v(\d+)$/.exec(k); })
+        .filter(Boolean).map(function (m) { return +m[1]; });
+      av.textContent = nums.length ? 'v' + Math.max.apply(null, nums) : '—';
+    }).catch(function () { av.textContent = '—'; });
+  }
+
+  /* ================================================================== */
+  /* Historique des versions                                             */
+  /*                                                                     */
+  /* Tiré en direct de l'API publique GitHub : le dépôt est public, aucun */
+  /* jeton n'est nécessaire, et rien n'est à maintenir à la main dans     */
+  /* l'app. Convention : le titre de commit d'une release commence par    */
+  /* « vNN — », NN correspondant au CACHE de sw.js.                       */
+  /* ================================================================== */
+
+  var VH_URL = 'https://api.github.com/repos/mnafati-cloud/forge/commits';
+  var VH_PAGE = 40;
+  var vhPage = 1, vhCharge = false;
+
+  function openVersionHistory() {
+    vhPage = 1; vhCharge = false;
+    openSheet('Historique des versions',
+      '<div id="vhlist" class="vhlist"><p class="small muted">Chargement…</p></div>' +
+      '<div id="vhmore"></div><div class="tail"></div>',
+      null,
+      openSettings);        // la flèche ramène aux réglages
+    vhLoad();
+  }
+
+  function vhLoad() {
+    if (vhCharge) return;
+    vhCharge = true;
+    var liste = $('vhlist'), plus = $('vhmore');
+    if (plus) plus.innerHTML = '<div class="small muted center" style="padding:var(--s3)">Chargement…</div>';
+
+    fetch(VH_URL + '?sha=main&per_page=' + VH_PAGE + '&page=' + vhPage,
+      { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (commits) {
+        if (!Array.isArray(commits)) throw new Error('format');
+        if (!$('vhlist')) return;                       // feuille refermée entre-temps
+        if (vhPage === 1) {
+          liste.innerHTML = commits.length ? '' : '<p class="small muted">Aucune version trouvée.</p>';
+        }
+        liste.insertAdjacentHTML('beforeend', commits.map(vhLigne).join(''));
+        $('vhmore').innerHTML = commits.length === VH_PAGE
+          ? '<button class="btn" style="width:100%" data-act="vh-more">Charger la suite</button>'
+          : '<div class="small muted center" style="padding:var(--s3)">Début du projet.</div>';
+        vhPage++;
+      })
+      .catch(function () {
+        if (!$('vhlist')) return;
+        if (vhPage === 1) {
+          liste.innerHTML = '<p class="small muted">Historique indisponible — hors-ligne, ' +
+            'ou limite de l’API GitHub atteinte.<br>Il reste consultable sur ' +
+            '<a href="https://github.com/mnafati-cloud/forge/commits/main" target="_blank" rel="noopener">GitHub</a>.</p>';
+        }
+        $('vhmore').innerHTML = '';
+      })
+      .then(function () { vhCharge = false; });
+  }
+
+  function vhLigne(c) {
+    var msg = ((c.commit && c.commit.message) || '').split('\n')[0];
+    var iso = c.commit && c.commit.author && c.commit.author.date;
+    var d = '';
+    if (iso) {
+      try { d = new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (e) { d = iso.slice(0, 10); }
+    }
+    var mv = /^v(\d+)\s*[:\-\u2013\u2014]\s*/.exec(msg);
+    var titre = mv ? msg.slice(mv[0].length).trim() : msg;
+    var sha = (c.sha || '').slice(0, 7);
+    return '<div class="vhitem">' +
+      (mv ? '<span class="vhtag">v' + esc(mv[1]) + '</span>'
+          : '<span class="vhtag off">·</span>') +
+      '<span class="grow"><span class="vhtitle">' + esc(titre) + '</span>' +
+      '<span class="vhmeta">' + esc(d) + (sha ? ' · ' + esc(sha) : '') + '</span></span></div>';
   }
 
   function toggle(id, label, hint, on) {
@@ -1582,6 +1684,12 @@
     /* --- navigation --- */
     if (a === 'go-ses') { UI.tab = 'ses'; render(); return; }
     if (a === 'closesheet') { closeSheet(); return; }
+    if (a === 'sheet-back') {
+      var fb = sheetBack;
+      sheetBack = null; sheetClose = null;
+      if (fb) fb(); else closeSheet();
+      return;
+    }
 
     /* --- séance --- */
     if (a === 'new-empty') { newSession([]); render(); openPicker(); return; }
@@ -1759,6 +1867,8 @@
       if (ed) ed.innerHTML = plateEditor();
       return;
     }
+    if (a === 'verhist') { applySettings(); openVersionHistory(); return; }
+    if (a === 'vh-more') { vhLoad(); return; }
     if (a === 'export') { doExport(); return; }
     if (a === 'import') { var f = $('impFile'); if (f) f.click(); return; }
     if (a === 'wipe') {

@@ -32,9 +32,12 @@ modification non triviale.
    En plus : `node --check` sur chaque JS de `docs/` modifié (la CI le fait sur tous).
    Un test rouge = tu ne pousses pas, point.
 
-5. **Bump `CACHE` dans `docs/sw.js`** (+1, ex. `forge-v3` → `forge-v4`) à chaque release qui touche `docs/`.
-   Fichier JS/CSS ajouté dans `docs/` = aussi l'ajouter à `ASSETS` dans sw.js. La CI refuse une PR
-   qui touche `docs/` sans bump.
+5. **Bump `CACHE` dans `docs/sw.js`** (+1, ex. `forge-v4` → `forge-v5`) à chaque release qui touche `docs/`,
+   **et nomme le commit `vN — description`** avec le MÊME N. Fichier JS/CSS ajouté dans `docs/` =
+   aussi l'ajouter à `ASSETS` dans sw.js. La CI refuse une PR qui touche `docs/` sans bump.
+   Le numéro sert deux fois : l'app affiche le cache actif comme numéro de version (donc ce qui
+   tourne VRAIMENT sur le téléphone), et l'écran « Historique des versions » lit les titres de
+   commit sur GitHub pour les étiqueter. Un commit mal nommé apparaît sans pastille.
 
 6. **`docs/engine.js` = logique pure, contractuelle.** Aucun accès DOM, `window` ou localStorage dedans.
    Toute date et tout « maintenant » entrent en **paramètre** — sinon les tests deviennent instables.
@@ -141,7 +144,8 @@ python3 tools/make_icons.py
 3. Bump `CACHE` dans `docs/sw.js` (+1) ; `ASSETS` à jour si un fichier a été ajouté dans `docs/`.
 4. Test local : `python3 -m http.server 8123 --directory docs` → parcours complet + un export.
    Console sans erreur.
-5. `git add` ciblé (vérifier avec `git status` : AUCUN `forge-export-*.json`) → commit → push sur `main`.
+5. `git add` ciblé (vérifier avec `git status` : AUCUN `forge-export-*.json`) →
+   commit **titré `vN — description`** (N = le CACHE qu'on vient de poser) → push sur `main`.
 6. Le push déclenche le workflow **« Deploy Pages »**. Vérifier ensuite :
    > **Prérequis, à faire une seule fois** : GitHub Pages doit être activé à la main dans
    > *Settings → Pages → Build and deployment → Source = **GitHub Actions***.

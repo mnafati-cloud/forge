@@ -148,6 +148,25 @@ Suivre LE PATTERN (CLAUDE.md). Concrètement :
 Modifier `BG`/`FG` ou la fonction `dumbbell()` pour changer le dessin.
 Après régénération : bump `CACHE`, et vérifier que les 3 PNG sont bien dans `ASSETS`.
 
+### R7ter — Numéro de version et historique
+
+Il n'existe **aucune** constante de version dans le code, et c'est voulu.
+
+- **Ce qui s'affiche** dans les réglages est le nom du cache actif du service worker
+  (`caches.keys()` → `forge-vNN`). C'est la seule source qui décrive ce qui tourne réellement sur
+  l'appareil : le dépôt peut être en v9 pendant que le téléphone, faute de réseau, tourne encore
+  en v7 — et c'est précisément l'information utile quand un bug est signalé.
+- **L'historique** (clic sur le numéro) est tiré en direct de l'API publique GitHub
+  (`/repos/mnafati-cloud/forge/commits`), paginé par 40, sans jeton puisque le dépôt est public.
+  Repli propre hors-ligne, avec lien vers GitHub.
+- **La pastille `vNN`** vient du titre du commit, via `/^v(\d+)\s*[:\-–—]\s*/`. D'où la convention :
+  un commit de release s'intitule **`vN — description`**, N étant le CACHE posé dans `sw.js`.
+  Les quatre premiers commits du projet sont antérieurs à cette convention : ils s'affichent
+  sans pastille, c'est normal et sans conséquence.
+
+Rien à maintenir à la main : pas de fichier de changelog à tenir à jour, donc pas de changelog
+qui se périme.
+
 ### R8 — Revenir en arrière après une release ratée
 
 ```bash
@@ -297,6 +316,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
 [ ] node --test tests/*.test.mjs              → 40/40 vert
 [ ] for f in docs/*.js; do node --check $f; done → aucune erreur
 [ ] CACHE bumpé dans docs/sw.js               → si docs/ a changé
+[ ] commit titré « vN — … » avec le même N    → sinon pas de pastille dans l'historique
 [ ] ASSETS à jour dans docs/sw.js             → si un fichier a été ajouté à docs/
 [ ] python3 -m http.server 8123 --directory docs, puis :
       [ ] démarrer une séance, ajouter un exercice à la barre
