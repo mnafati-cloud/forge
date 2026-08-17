@@ -36,7 +36,7 @@
     ],
     step: 2.5,
     rest: 120,
-    restAuto: true,
+    restAuto: false,
     sound: true,
     vibrate: true,
     rpe: false,

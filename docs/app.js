@@ -119,7 +119,7 @@
     return {
       v: 1, set: JSON.parse(JSON.stringify(E.DEF_SET)),
       ses: [], cur: null, ex: {}, bw: [], rest: null,
-      reports: [], lastCloud: '', lastCloudTs: 0
+      reports: [], lastCloud: '', lastCloudTs: 0, mig: {}
     };
   }
 
@@ -209,11 +209,35 @@
     }).slice(-100);
     if (typeof s.lastCloud !== 'string') s.lastCloud = '';
     if (typeof s.lastCloudTs !== 'number') s.lastCloudTs = 0;
+
+    /* MIGRATIONS PONCTUELLES — chacune s'exécute une fois et laisse sa trace dans
+       s.mig, pour qu'aucune ne repasse jamais sur un réglage choisi à la main.
+       C'est le seul endroit où l'app touche un réglage de l'utilisateur, et elle
+       ne le fait qu'une fois, pour une raison écrite. */
+    if (!s.mig || typeof s.mig !== 'object') s.mig = {};
+    if (!s.mig.restAutoOff) {
+      // Le chrono automatique donnait l'impression d'être mis sous pression à
+      // chaque série. Il redevient volontaire : le bouton « Repos » du pavé.
+      s.set.restAuto = false;
+      s.mig.restAutoOff = 1;
+      migAppliquee = true;
+    }
+    if (!s.mig.nomsAuto) {
+      // Les noms de séance déduits du groupe musculaire (« Séance pectoraux »)
+      // sont effacés : ils n'ont pas été écrits par l'utilisateur.
+      var autoNoms = /^Séance (pectoraux|dos|épaules|biceps|triceps|quadriceps|ischios|fessiers|mollets|abdos|avant-bras|corps entier)$/i;
+      var vider = function (z) { if (z && (z.n === 'Séance' || autoNoms.test(z.n || ''))) z.n = ''; };
+      (s.ses || []).forEach(vider);
+      vider(s.cur);
+      s.mig.nomsAuto = 1;
+      migAppliquee = true;
+    }
+
     s.v = 1;
     return s;
   }
 
-  var ecartees = 0, brutAvantNettoyage = null;
+  var ecartees = 0, migAppliquee = false, brutAvantNettoyage = null;
 
   var saveT = null, echecEcriture = false;
   function save(now) {
@@ -392,7 +416,7 @@
       d: todayStr(now),
       t0: now,
       t1: 0,
-      n: name || defaultName(planIds),
+      n: name || '',
       s: [],
       p: (planIds || []).slice(),
       note: ''
@@ -404,15 +428,16 @@
     save(true);
   }
 
-  /** Nom proposé : le groupe musculaire dominant du plan, sinon la date. */
-  function defaultName(planIds) {
-    var cnt = {}, i, g, best = null;
-    for (i = 0; i < (planIds || []).length; i++) {
-      g = exOf(planIds[i]).g;
-      cnt[g] = (cnt[g] || 0) + 1;
-      if (!best || cnt[g] > cnt[best]) best = g;
-    }
-    return best ? 'Séance ' + gName(best).toLowerCase() : 'Séance';
+  /**
+   * Libellé d'une séance : son nom s'il en a un, sinon sa date.
+   * Aucun nom n'est inventé. L'ancien nom automatique était déduit du groupe
+   * musculaire dominant (« Séance pectoraux ») : une logique de SPLIT, qui
+   * produit une étiquette absurde et changeante quand on refait les mêmes
+   * exercices à chaque séance.
+   */
+  function sesTitre(ses) {
+    if (ses.n) return ses.n;
+    return 'Séance du ' + longDate(ses.d).replace(/^\w+ /, '');
   }
 
   /** Exercices affichés dans la séance : le plan + tout exercice ayant des séries. */
@@ -556,11 +581,6 @@
 
   function render() {
     reindex();
-    var st = E.weekStreak(ST.ses, todayStr());
-    $('streak').innerHTML = st > 0 ? ico('flame', 14) + '<span>' + st + ' sem.</span>' : '';
-    $('streak').style.display = st > 0 ? '' : 'none';
-    $('streak').title = st > 0 ? st + ' semaine' + (st > 1 ? 's' : '') + ' d\u2019affil\u00e9e avec au moins une s\u00e9ance' : '';
-
     majBoutonRapport();
     var nav = $('nav').children, i, actif;
     for (i = 0; i < nav.length; i++) {
@@ -618,7 +638,7 @@
         var exs = sessionExercises(quick[i]);
         h += '<button class="btn cardbtn" data-act="repeat" data-id="' + esc(quick[i].id) + '">' +
           '<span class="grow">' +
-          '<span class="t1">' + esc(quick[i].n) + '</span>' +
+          '<span class="t1">' + esc(sesTitre(quick[i])) + '</span>' +
           '<span class="t2 ellip">' + esc(relDate(quick[i].d)) + ' · ' +
           esc(exs.slice(0, 3).map(function (x) { return exName(x); }).join(', ') +
             (exs.length > 3 ? ' +' + (exs.length - 3) : '')) + '</span></span>' +
@@ -643,17 +663,26 @@
     var st = E.sessionStats(Object.assign({}, ses, { t1: Date.now() }), IX, bwNow());
     var h = '';
 
-    h += '<div class="sesbar">' +
-      '<input class="nm grow" id="sesName" value="' + esc(ses.n) + '" aria-label="Nom de la séance">' +
-      '<span class="t" id="sesClock">0:00</span>' +
-      '<button class="btn sm pri" data-act="finish">Terminer</button>' +
-      '</div>';
+    /* Le nom est FACULTATIF, se voit comme un champ, et n'est PAS collant :
+       on nomme une séance une fois, pas à chaque instant. Vide, il montre la date. */
+    h += '<label class="sesname">' + ico('note', 16) +
+      '<input id="sesName" value="' + esc(ses.n) + '" ' +
+      'placeholder="' + esc(sesTitre(ses)) + '" ' +
+      'aria-label="Nom de la séance, facultatif" enterkeyhint="done"></label>';
 
-    h += '<div class="sesline">' +
+    /* Barre collante : le strict nécessaire pendant l'effort — le temps écoulé,
+       ce qui est déjà fait, et la sortie. */
+    h += '<div class="sesbar">' +
+      '<div class="row" style="width:100%">' +
+      '<span class="t" id="sesClock">0:00</span>' +
+      '<span class="grow"></span>' +
+      '<button class="btn sm pri" data-act="finish">Terminer</button>' +
+      '</div>' +
+      '<div class="sesline">' +
       '<span>' + st.sets + ' série' + (st.sets > 1 ? 's' : '') + '</span><span>·</span>' +
-      '<span>' + E.fmtVol(st.vol) + '</span><span>·</span>' +
-      '<span>' + st.reps + ' reps</span>' +
-      (st.sec ? '<span>·</span><span>' + fmtSec(st.sec) + ' de gainage</span>' : '') + '</div>';
+      '<span>' + E.fmtVol(st.vol) + '</span>' +
+      (st.sec ? '<span>·</span><span>' + fmtSec(st.sec) + '</span>' : '') + '</div>' +
+      '</div>';
 
     var exs = sessionExercises(ses), i;
     for (i = 0; i < exs.length; i++) h += exBlock(ses, exs[i]);
@@ -676,6 +705,8 @@
       (mine.length ? ' · ' + mine.length + ' série' + (mine.length > 1 ? 's' : '') : '') +
       '</span></span>' +
       '<span class="chev">' + ico(active ? 'chevronDown' : 'chevronRight', 20) + '</span></button>';
+
+
 
     h += '<div class="body">';
 
@@ -703,6 +734,10 @@
       }
       h += pad(ex);
       if (ST.set.cues && ex.c) h += '<div class="cue">' + ico('bulb', 16) + '<span>' + esc(ex.c) + '</span></div>';
+      // Action destructrice : tout en bas du bloc, loin du bouton de validation.
+      h += '<button class="exdel" data-act="ex-del" data-id="' + esc(exId) + '" ' +
+        'aria-label="Retirer ' + esc(ex.n) + ' de la séance">' + ico('trash', 15) +
+        '<span>Retirer de la séance</span></button>';
     }
 
     h += '</div></div>';
@@ -769,7 +804,6 @@
       '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu" aria-pressed="' + (UI.wu ? 'true' : 'false') + '">' +
       ico('flame', 17) + 'Échauffement</button>' +
       '<button class="chip" data-act="rest-now">' + ico('timer', 17) + 'Repos</button>' +
-      '<button class="chip" data-act="ex-del" data-id="' + esc(ex.id) + '">' + ico('trash', 17) + 'Retirer</button>' +
       (UI.edit >= 0 ? '<span class="grow"></span><button class="chip" data-act="cancel-edit">Annuler la modif</button>' : '') +
       '</div>';
 
@@ -839,7 +873,7 @@
 
     if (ST.cur) {
       h += '<div class="card" style="border-color:var(--acc)">' +
-        '<div class="row"><span class="grow"><b>' + esc(ST.cur.n) + '</b><br>' +
+        '<div class="row"><span class="grow"><b>' + esc(sesTitre(ST.cur)) + '</b><br>' +
         '<span class="small muted">séance en cours · ' + ST.cur.s.length + ' séries</span></span>' +
         '<button class="btn sm pri" data-act="go-ses">Reprendre</button></div></div>';
     }
@@ -854,7 +888,7 @@
       }
       st = E.sessionStats(ses, IX, bwAt);
       h += '<button class="card seslink" data-act="sesdet" data-id="' + esc(ses.id) + '">' +
-        '<div class="row"><span class="grow"><b>' + esc(ses.n) + '</b><br>' +
+        '<div class="row"><span class="grow"><b>' + esc(sesTitre(ses)) + '</b><br>' +
         '<span class="small muted">' + esc(relDate(ses.d)) + '</span></span>' +
         '<span style="color:var(--fg3)">›</span></div>' +
         '<div class="stat">' +
@@ -911,7 +945,7 @@
       '<button class="btn big danger" data-act="delses" data-id="' + esc(ses.id) + '">' + ico('trash', 20) + 'Supprimer cette séance</button>' +
       '<div class="tail"></div>';
 
-    openSheet(esc(ses.n) + ' — ' + esc(longDate(ses.d)), h, function () {
+    openSheet(esc(sesTitre(ses)), h, function () {
       var t = $('sesNote');
       if (t) { ses.note = t.value; save(true); }
     });
@@ -1339,9 +1373,7 @@
   function addExerciseToSession(exId) {
     if (!ST.cur) { newSession([exId]); }
     else if (ST.cur.p.indexOf(exId) < 0) {
-      var auto = ST.cur.n === defaultName(ST.cur.p);   // nom jamais édité à la main
       ST.cur.p.push(exId);
-      if (auto) ST.cur.n = defaultName(ST.cur.p);
     }
     UI.act = exId;
     UI.edit = -1;
@@ -1414,7 +1446,7 @@
     h += '<div class="card"><h2>Repos</h2>' +
       '<div class="field"><label>Durée par défaut (secondes)</label>' +
       '<input id="stRest" type="number" step="15" min="0" value="' + (s.rest | 0) + '"></div>' +
-      toggle('stRestAuto', 'Démarrage automatique', 'Le chrono part tout seul après chaque série non-échauffement.', s.restAuto) +
+      toggle('stRestAuto', 'Démarrage automatique', 'Coupé par défaut : le chrono ne part que si tu appuies sur « Repos ».', s.restAuto) +
       toggle('stSound', 'Bip de fin', '', s.sound) +
       toggle('stVib', 'Vibration', '', s.vibrate) +
       '</div>';
@@ -2229,7 +2261,7 @@
 
   function syncName() {
     var n = $('sesName');
-    if (n && ST.cur) { ST.cur.n = n.value.trim() || 'Séance'; save(); }
+    if (n && ST.cur) { ST.cur.n = n.value.trim(); save(); }   // vide : la date fait office
   }
 
   document.addEventListener('blur', function (ev) {
@@ -2370,8 +2402,10 @@
   if (ecartees) {
     try { if (brutAvantNettoyage) localStorage.setItem('forge-state-v1-avant-nettoyage', brutAvantNettoyage); }
     catch (e) { /* pas de place : tant pis pour la copie, on nettoie quand même */ }
-    save(true);
   }
+  /* Une migration doit être ÉCRITE, sinon elle repasse à chaque lancement — et
+     réécraserait un réglage que l'utilisateur aurait volontairement remis. */
+  if (ecartees || migAppliquee) save(true);
 
   /* Au tout premier lancement, le service worker n'a pas encore rempli son cache :
      caches.keys() renvoie une liste vide et la version resterait « — ». On relit

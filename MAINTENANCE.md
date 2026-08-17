@@ -195,6 +195,18 @@ chaque sauvegarde cloud et chaque export — donc je les lis à la session suiva
 l'utilisateur ait à les recopier. Le bouton (drapeau, en-tête) porte une pastille tant que
 des rapports attendent, et se coupe par `set.report`.
 
+### R11 — Migration ponctuelle d'un réglage
+
+C'est le SEUL cas où l'app modifie un réglage choisi par l'utilisateur. Règles :
+
+1. Une clé par migration dans `ST.mig` (ex. `mig.restAutoOff`), testée avant d'agir.
+2. Poser `migAppliquee = true` — sinon rien n'est écrit, la migration repasse à chaque
+   lancement et **réécrase un réglage que l'utilisateur aurait volontairement remis**.
+   Ce piège a été rencontré : la migration marchait en mémoire et ne se persistait pas.
+3. Écrire en commentaire POURQUOI, pas seulement quoi.
+4. Ne jamais toucher aux données d'entraînement — uniquement `set` et des libellés
+   que l'app avait elle-même inventés.
+
 ### R8 — Revenir en arrière après une release ratée
 
 ```bash
@@ -323,6 +335,18 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
   d'avoir la dernière version, avec le cache comme filet pour une séance hors-ligne.
 - **Un seul écran de saisie visible à la fois** (l'exercice actif se déplie, les autres se replient) :
   entre deux séries, on a une main libre et 20 secondes.
+- **Aucun nom de séance inventé.** Le nom automatique était déduit du groupe musculaire
+  dominant (« Séance pectoraux ») : c'est une logique de SPLIT. L'utilisateur refait les mêmes
+  exercices à chaque séance — l'étiquette était donc absurde et changeait toute seule d'une fois
+  sur l'autre. Une séance se repère par sa DATE ; le nom est facultatif, vide par défaut, et le
+  champ doit se VOIR comme un champ (bordure + icône) sinon personne ne devine qu'il se modifie.
+- **Le chrono de repos ne démarre jamais tout seul.** Retour d'usage : « le machin avait l'air
+  d'être sur un timer ». On enregistre une séance, on ne met pas quelqu'un sous pression.
+  Le bouton « Repos » du pavé le lance quand l'utilisateur le décide. `restAuto` existe toujours
+  pour qui le veut, mais vaut `false` par défaut.
+- **Aucune gamification.** Le compteur de semaines d'affilée dans l'en-tête a été retiré :
+  personne ne l'avait demandé, et un pratiquant qui reprend n'a pas besoin d'une série à tenir.
+  `E.weekStreak()` reste dans le moteur, testé, mais n'est plus affiché.
 - **Aucun emoji, aucun dialogue natif.** Ce sont les deux marqueurs qui font « page web » plutôt
   qu'« application ». Les icônes sont des SVG de trait sur grille 24 ; les confirmations passent par
   `askDialog()`, dans le vocabulaire visuel de l'app.
@@ -351,6 +375,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
       [ ] valider 2 séries → le calcul « par côté » est juste
       [ ] le chrono de repos démarre, +30 s et Passer fonctionnent
       [ ] modifier une série (tap sur la ligne), en supprimer une
+      [ ] le chrono NE démarre PAS tout seul après une série
       [ ] terminer la séance
       [ ] corriger une série depuis l'historique, puis annuler une suppression
       [ ] un gainage (planche) : saisie en secondes, hors tonnage

@@ -312,7 +312,6 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
 
 .sesbar {
   position: sticky; top: var(--hd-h); z-index: 20;
-  display: flex; align-items: center; gap: var(--s3);
   margin: 0 0 var(--s3);
   padding: var(--s3);
   background: var(--bg2);
@@ -320,16 +319,11 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
   border-radius: var(--radius);
 }
 .sesbar .t { font-variant-numeric: tabular-nums; font-weight: 700; font-size: var(--t-lg); }
-.sesbar input.nm {
-  background: transparent; border: 1px solid transparent; padding: 4px 6px;
-  margin: -4px -6px; font-weight: 600; border-radius: var(--radius-s);
-}
-.sesbar input.nm:focus { outline: 2px solid var(--acc); outline-offset: 0; }
 
 .sesline {
   display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
   font-size: var(--t-sm); color: var(--fg2);
-  margin: 0 var(--s1) var(--s3);
+  margin-top: var(--s2);
 }
 
 .exblk {
@@ -678,3 +672,31 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
   border: 2px solid var(--bg3);
 }
 .icobtn[hidden] { display: none; }
+
+/* Nom de séance — FACULTATIF, et visiblement modifiable : sans bordure ni icône,
+   on ne devine pas qu'on peut le changer. Vide, le champ affiche la date. */
+.sesname {
+  display: flex; align-items: center; gap: var(--s2);
+  margin: 0 0 var(--s3);
+  padding: 0 var(--s3);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  color: var(--fg3);
+}
+.sesname input {
+  background: none; border: none; padding: var(--s3) 0;
+  font-weight: 600; color: var(--fg);
+}
+.sesname input::placeholder { color: var(--fg3); font-weight: 400; }
+.sesname input:focus { outline: none; }
+.sesname:focus-within { border-color: var(--acc); }
+.sesname:focus-within .ico { color: var(--acc); }
+
+/* Retirer un exercice : action secondaire, à l'écart du bouton de validation. */
+.exdel {
+  display: flex; align-items: center; gap: var(--s2);
+  width: 100%; padding: var(--s2) var(--pad) var(--s3);
+  font-size: var(--t-sm); color: var(--fg3); text-align: left;
+}
+.exdel:active { color: var(--bad); }

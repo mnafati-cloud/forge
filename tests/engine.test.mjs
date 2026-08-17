@@ -50,7 +50,7 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
     ],
     step: 2.5,
     rest: 120,
-    restAuto: true,
+    restAuto: false,
     sound: true,
     vibrate: true,
     rpe: false,
