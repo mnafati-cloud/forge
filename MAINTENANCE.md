@@ -312,6 +312,13 @@ Un clavier français produit « 42,5 ». Le champ devient invalide et `.value` r
 VIDE : la charge partait à zéro. Les champs de saisie sont passés en `type="text"` +
 `inputmode="decimal"`, avec une normalisation virgule → point à la lecture.
 
+**P19 — Le nettoyeur d'état réinjectait un nom générique.**
+`saineSeance()` faisait `n: z.n ? z.n : 'Séance'`. Un nom VIDE est pourtant une valeur
+légitime — c'est ce qui fait afficher la séance par sa date. Résultat : à chaque chargement,
+toutes les séances sans nom reprenaient « Séance », ce qui annulait discrètement le travail
+sur le nommage. Règle : un nettoyeur ne DEVINE pas une valeur par défaut à la place de
+l'utilisateur, il se contente de rejeter ce qui est du mauvais type.
+
 **P13 — Les icônes en emoji ignorent `color`.**
 Sur Android, les emoji sont rendus en bitmap couleur par Noto Color Emoji. L'onglet actif de la
 barre de navigation ne changeait donc pas de couleur, et l'alignement optique variait d'un
@@ -378,6 +385,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
       [ ] le chrono NE démarre PAS tout seul après une série
       [ ] terminer la séance
       [ ] corriger une série depuis l'historique, puis annuler une suppression
+      [ ] AJOUTER une série oubliée à une séance terminée, et l'annuler
       [ ] un gainage (planche) : saisie en secondes, hors tonnage
       [ ] onglet Historique → ouvrir le détail → « Refaire cette séance »
       [ ] onglet Progrès → les 4 blocs s'affichent, les graphiques se tracent

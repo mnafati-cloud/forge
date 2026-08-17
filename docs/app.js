@@ -153,7 +153,10 @@
       d: z.d,
       t0: isFinite(Number(z.t0)) ? Number(z.t0) : 0,
       t1: isFinite(Number(z.t1)) ? Number(z.t1) : 0,
-      n: typeof z.n === 'string' && z.n ? z.n : 'Séance',
+      // Un nom VIDE est une valeur légitime : la séance s'affiche alors par sa date.
+      // Remettre « Séance » ici réinjectait le nom générique à chaque chargement
+      // et annulait discrètement tout le travail sur le nommage.
+      n: typeof z.n === 'string' ? z.n : '',
       s: series,
       p: Array.isArray(z.p) ? z.p.filter(function (x) { return typeof x === 'string'; }) : [],
       note: typeof z.note === 'string' ? z.note : ''
@@ -931,8 +934,15 @@
           'aria-label="Supprimer la série">' + ico('trash', 18) + '</button>' +
           '</div>';
       });
+      // Une série oubliée se rattrape ici : sans cela, la seule issue était de
+      // supprimer la séance entière et de tout ressaisir.
+      h += '<button class="addset" data-act="fix-add" data-sid="' + esc(ses.id) + '" ' +
+        'data-x="' + esc(exs[i]) + '">' + ico('plus', 16) + '<span>Ajouter une série</span></button>';
       h += '</div>';
     }
+
+    h += '<button class="btn" style="width:100%" data-act="fix-addex" data-sid="' + esc(ses.id) + '">' +
+      ico('plus', 20) + 'Ajouter un exercice oublié</button><div class="sp-4"></div>';
 
     h += '<div class="hint" style="margin:calc(-1 * var(--s2)) 0 var(--s3)">' +
       'Touche une série pour la corriger — une faute de frappe fausse les records tant qu’elle est là.</div>';
@@ -948,6 +958,49 @@
     openSheet(esc(sesTitre(ses)), h, function () {
       var t = $('sesNote');
       if (t) { ses.note = t.value; save(true); }
+    });
+  }
+
+  /**
+   * Ajoute une série à une séance DÉJÀ TERMINÉE.
+   * Les valeurs sont pré-remplies avec la dernière série de cet exercice dans
+   * cette séance : on rattrape presque toujours une série identique ou voisine.
+   * La série s'insère juste après les autres du même exercice, avec un horodatage
+   * qui suit — l'ordre de lecture reste celui de la séance.
+   */
+  function ajouterSerieA(ses, exId) {
+    var ex = exOf(exId);
+    var mine = setsOf(ses, exId);
+    var ref = mine.length ? mine[mine.length - 1].s : null;
+    askDialog({
+      title: 'Ajouter une série',
+      text: ex.n + ' — ' + longDate(ses.d),
+      ok: 'Ajouter',
+      inputs: [
+        { key: 'w', label: (ex.sec || ex.bw) ? 'Lest (kg)' : 'Charge (kg)', value: ref ? num(ref.w) : '0' },
+        { key: 'r', label: ex.sec ? 'Durée (s)' : 'Répétitions', value: ref ? String(ref.r) : '8', inputmode: 'numeric' }
+      ]
+    }, function (v) {
+      var nw = Math.max(0, parseFloat(String(v.w).replace(',', '.').replace(/[^0-9.]/g, '')) || 0);
+      var nr = Math.max(0, parseInt(String(v.r).replace(/[^0-9]/g, ''), 10) || 0);
+      if (nr <= 0) { toast('Valeur invalide : rien n’a été ajouté', 'alert'); return; }
+      var apres = mine.length ? mine[mine.length - 1].ix + 1 : ses.s.length;
+      var t0 = mine.length ? (mine[mine.length - 1].s.t || 0) + 1 : (ses.t1 || ses.t0 || 0);
+      var ajoutee = { x: exId, w: E.r2(nw), r: nr, e: 0, u: 0, t: t0 };
+      ses.s.splice(apres, 0, ajoutee);
+      if (ses.p.indexOf(exId) < 0) ses.p.push(exId);
+      save(true);
+      sessionDetail(ses.id);
+      toast('Série ajoutée', 'ok', function () {
+        // Retrait par RÉFÉRENCE : l'index aurait pu bouger si une autre série
+        // a été ajoutée ou supprimée pendant les six secondes d'annulation.
+        var i2 = ses.s.indexOf(ajoutee);
+        if (i2 < 0) return;
+        ses.s.splice(i2, 1);
+        save(true); sessionDetail(ses.id);
+        toast('Ajout annulé', 'ok');
+      });
+      autoCloudBackup();
     });
   }
 
@@ -1295,6 +1348,7 @@
   function closeSheet(depuisRetour) {
     if (sheetClose) { try { sheetClose(); } catch (e) { } }
     sheetClose = null; sheetBack = null;
+    pickPour = null;          // sélecteur refermé sans choix : on le désarme
     $('sheet').innerHTML = '';
     if (!depuisRetour) popLayer();
     render();
@@ -1302,7 +1356,7 @@
 
   /* --------------------------- Choix d'un exercice ------------------ */
 
-  var pickQ = '', pickG = '';
+  var pickQ = '', pickG = '', pickPour = null;
 
   function openPicker() {
     pickQ = ''; pickG = '';
@@ -1371,6 +1425,17 @@
   }
 
   function addExerciseToSession(exId) {
+    // Complément d'une séance passée : on repart vers son détail, pas vers l'onglet Séance.
+    if (pickPour) {
+      var cible = null, kp;
+      for (kp = 0; kp < ST.ses.length; kp++) if (ST.ses[kp].id === pickPour.sid) cible = ST.ses[kp];
+      pickPour = null;
+      if (!cible) { closeSheet(); return; }
+      sheetClose = null;
+      sessionDetail(cible.id);
+      ajouterSerieA(cible, exId);
+      return;
+    }
     if (!ST.cur) { newSession([exId]); }
     else if (ST.cur.p.indexOf(exId) < 0) {
       ST.cur.p.push(exId);
@@ -2049,6 +2114,21 @@
 
     /* --- historique --- */
     if (a === 'sesdet') { sessionDetail(t.dataset.id); return; }
+
+    if (a === 'fix-addex') {
+      var sidA = t.dataset.sid;
+      pickPour = { sid: sidA };
+      openPicker();
+      return;
+    }
+
+    if (a === 'fix-add') {
+      var fsa = null, ka;
+      for (ka = 0; ka < ST.ses.length; ka++) if (ST.ses[ka].id === t.dataset.sid) fsa = ST.ses[ka];
+      if (!fsa) return;
+      ajouterSerieA(fsa, t.dataset.x);
+      return;
+    }
 
     if (a === 'fix-set' || a === 'fix-del') {
       var fs = null, fi = +t.dataset.ix, k;
