@@ -218,6 +218,7 @@
        C'est le seul endroit où l'app touche un réglage de l'utilisateur, et elle
        ne le fait qu'une fois, pour une raison écrite. */
     if (!s.mig || typeof s.mig !== 'object') s.mig = {};
+    if (E.TRACK_MODES.indexOf(s.set.proMode) < 0) s.set.proMode = 'auto';
     if (!s.set.vestEx || typeof s.set.vestEx !== 'object') s.set.vestEx = {};
     if (!isFinite(Number(s.set.vest)) || Number(s.set.vest) < 0) s.set.vest = 0;
     if (!Array.isArray(s.set.bars) || !s.set.bars.length) s.set.bars = [Number(s.set.bar) || 20];
@@ -1086,7 +1087,12 @@
       }
     }
 
-    var h = '';
+    var h = '<div class="promode"><label for="proMode">Ce que je suis</label>' +
+      '<select id="proMode">' + PRO_MODES.map(function (m) {
+        return '<option value="' + m.k + '"' + (ST.set.proMode === m.k ? ' selected' : '') + '>' +
+          esc(m.n) + '</option>';
+      }).join('') + '</select></div>';
+
     for (i = 0; i < vus.length; i++) h += blocProgres(vus[i]);
 
     if (!h) h += '<div class="empty">Aucune série exploitable pour l’instant.</div>';
@@ -1108,18 +1114,33 @@
     return h;
   }
 
-  /** Un exercice : son record, sa progression, ses dernières séances. */
+  var PRO_MODES = [
+    { k: 'auto', n: 'Le plus parlant' },
+    { k: 'charge', n: 'Charge max' },
+    { k: 'e1rm', n: '1RM théorique' },
+    { k: 'volset', n: 'Volume max sur une série' },
+    { k: 'volses', n: 'Volume total de la séance' },
+    { k: 'reps', n: 'Répétitions max' }
+  ];
+
+  /** Un exercice : son meilleur point, sa courbe, son écart depuis le début. */
   function blocProgres(exId) {
     var ex = exOf(exId);
-    var pts = E.exerciseMax(ST.ses, exId, IX, bwAt);
+    var mode = ST.set.proMode || 'auto';
+    var pts = E.exerciseTrack(ST.ses, exId, IX, bwAt, mode);
     if (!pts.length) return '';
 
     var dernier = pts[pts.length - 1];
     var record = pts[0], k;
     for (k = 1; k < pts.length; k++) if (pts[k].v > record.v) record = pts[k];
 
+    /* Le libellé décrit la GRANDEUR suivie, pas toujours la série :
+       en volume, « 103,5 kg × 8 » serait faux. */
     var lib = function (p) {
       if (p.unit === 's') return fmtSec(p.r);
+      if (mode === 'reps') return p.r + ' reps';
+      if (mode === 'e1rm') return num(p.v) + ' kg';
+      if (mode === 'volses' || mode === 'volset') return E.fmtVol(p.v);
       if (p.unit === 'reps') return p.r + ' reps';
       return num(p.w) + ' kg × ' + p.r;
     };
@@ -1133,8 +1154,10 @@
       '<b class="grow ellip">' + esc(ex.n) + '</b>' +
       '<span class="tiny muted">' + pts.length + ' séance' + (pts.length > 1 ? 's' : '') + '</span></div>';
 
+    var titreRecord = mode === 'volses' ? 'meilleure séance'
+      : mode === 'reps' ? 'meilleure série' : 'meilleure série';
     h += '<div class="prmax"><span class="v">' + esc(lib(record)) + '</span>' +
-      '<span class="l">meilleure série · ' + esc(relDate(record.d)) + '</span></div>';
+      '<span class="l">' + titreRecord + ' · ' + esc(relDate(record.d)) + '</span></div>';
 
     if (pts.length >= 2) {
       h += '<div id="ch_' + esc(exId) + '" class="prch"></div>';
@@ -1164,7 +1187,7 @@
     var blocs = document.querySelectorAll('[id^="ch_"]');
     for (i = 0; i < blocs.length; i++) {
       var exId = blocs[i].id.slice(3);
-      var pts = E.exerciseMax(ST.ses, exId, IX, bwAt);
+      var pts = E.exerciseTrack(ST.ses, exId, IX, bwAt, ST.set.proMode || 'auto');
       if (pts.length < 2) { blocs[i].innerHTML = ''; continue; }
       blocs[i].innerHTML = lineChart(
         pts.map(function (p) { return { v: p.v, l: dayMonth(p.d) }; }),
@@ -2337,6 +2360,11 @@
   });
 
   document.addEventListener('change', function (ev) {
+    if (ev.target.id === 'proMode') {
+      ST.set.proMode = ev.target.value;
+      save(true); render();
+      return;
+    }
     if (ev.target.id === 'impFile' && ev.target.files && ev.target.files[0]) doImport(ev.target.files[0]);
 
   });

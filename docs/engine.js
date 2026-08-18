@@ -49,6 +49,8 @@
        que d'un tonnage qui n'existe plus. Rallumables d'un interrupteur. */
     plateCalc: false,
     warmup: false,
+    /* Grandeur affichée dans l'onglet Progrès (cf. TRACK_MODES). */
+    proMode: 'auto',
     rest: 120,
     restAuto: false,
     sound: true,
@@ -300,6 +302,61 @@
         p.unit = unit;
         pts.push(p);
       }
+    }
+    return pts;
+  }
+
+  /* Grandeurs suivies dans l'onglet Progrès. Aucune n'est « la bonne » :
+     la charge dit la force, les reps disent l'endurance, le volume dit le
+     travail fourni, le 1RM estime un maximum jamais tenté. D'où le choix. */
+  var TRACK_MODES = ['auto', 'charge', 'e1rm', 'volses', 'volset', 'reps'];
+
+  /**
+   * Série chronologique d'un exercice selon la grandeur demandée.
+   * Un point par séance ; l'échauffement (u:1) n'est jamais compté.
+   *
+   *   auto    la grandeur qui a du sens pour cet exercice (cf. exerciseMax)
+   *   charge  la charge la plus lourde de la séance
+   *   e1rm    le meilleur 1RM estimé de la séance
+   *   volses  le volume total de l'exercice sur la séance (somme des charge × reps)
+   *   volset  le meilleur volume sur UNE série
+   *   reps    le plus grand nombre de répétitions sur une série
+   *
+   * Un exercice chronométré se suit TOUJOURS en secondes : les autres grandeurs
+   * n'y veulent rien dire (60 s × 80 kg ne sont pas 4800 kg de travail).
+   */
+  function exerciseTrack(sessions, exId, exIndex, bodyweight, mode) {
+    var ex = exIndex[exId] || {};
+    if (!mode || TRACK_MODES.indexOf(mode) < 0) mode = 'auto';
+    if (mode === 'auto' || ex.sec) return exerciseMax(sessions, exId, exIndex, bodyweight);
+
+    var unit = mode === 'reps' ? 'reps' : 'kg';
+    var pts = [], i, j, ses, s2, bw, ld, r, v, p;
+    for (i = 0; i < (sessions || []).length; i++) {
+      ses = sessions[i];
+      bw = bwOf(bodyweight, ses.d);
+      p = null;
+      for (j = 0; j < (ses.s || []).length; j++) {
+        s2 = ses.s[j];
+        if (s2.x !== exId || s2.u) continue;
+        r = Number(s2.r) || 0;
+        if (r <= 0) continue;
+        ld = effLoad(s2, ex, bw);
+
+        if (mode === 'charge') v = ld;
+        else if (mode === 'reps') v = r;
+        else if (mode === 'e1rm') v = e1rm(ld, r);
+        else v = r2(ld * r);            // volset, et cumul pour volses
+
+        if (mode === 'volses') {
+          if (!p) p = { d: ses.d, sid: ses.id, w: ld, r: r, v: 0, unit: unit };
+          p.v = r2(p.v + v);
+          if (ld > p.w || (ld === p.w && r > p.r)) { p.w = ld; p.r = r; }
+        } else if (!p || v > p.v) {
+          p = { d: ses.d, sid: ses.id, w: ld, r: r, v: v, unit: unit };
+        }
+      }
+      if (p) pts.push(p);
     }
     return pts;
   }
@@ -641,6 +698,8 @@
     bestSets: bestSets,
     exerciseSeries: exerciseSeries,
     exerciseMax: exerciseMax,
+    exerciseTrack: exerciseTrack,
+    TRACK_MODES: TRACK_MODES,
     lastPerf: lastPerf,
     prCheck: prCheck,
     groupVolume: groupVolume,

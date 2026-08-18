@@ -731,3 +731,14 @@ main { padding: var(--pad); max-width: 760px; margin: 0 auto; }
   font-size: var(--t-sm); color: var(--fg2);
   text-align: center; padding: var(--s2) 0 var(--s4);
 }
+
+/* Sélecteur de grandeur suivie (onglet Progrès) */
+.promode {
+  display: flex; align-items: center; gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+.promode label {
+  flex: none; font-size: var(--t-xs); color: var(--fg2);
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
+}
+.promode select { flex: 1; }

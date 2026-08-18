@@ -61,6 +61,7 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
     vestEx: { 'bb-squat': 1 },
     plateCalc: false,
     warmup: false,
+    proMode: 'auto',
     rest: 120,
     restAuto: false,
     sound: true,
@@ -360,6 +361,61 @@ test('exerciseMax ignore une séance sans série exploitable', () => {
   const pts = E.exerciseMax(S, 'bb-squat', IX, 80);
   assert.equal(pts.length, 1);
   assert.equal(pts[0].d, '2026-08-01');
+});
+
+test('exerciseTrack : les cinq grandeurs suivies', () => {
+  const S = [ses('a', '2026-08-01', [
+    set('bb-squat', 60, 10, { u: 1 }),   // échauffement : jamais compté
+    set('bb-squat', 100, 5),             // la plus lourde
+    set('bb-squat', 80, 12)              // le plus de reps ET le plus de volume
+  ])];
+
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'charge')[0].v, 100);
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'reps')[0].v, 12);
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'volses')[0].v, 100 * 5 + 80 * 12);
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'volset')[0].v, 80 * 12);
+  // Epley : 100x5 -> 116,7 ; 80x12 -> 112. Le meilleur des deux.
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'e1rm')[0].v, E.e1rm(100, 5));
+});
+
+test('exerciseTrack donne l’unité qui va avec la grandeur', () => {
+  const S = [ses('a', '2026-08-01', [set('bb-squat', 100, 5)])];
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'charge')[0].unit, 'kg');
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'e1rm')[0].unit, 'kg');
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'volses')[0].unit, 'kg');
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'volset')[0].unit, 'kg');
+  assert.equal(E.exerciseTrack(S, 'bb-squat', IX, 80, 'reps')[0].unit, 'reps');
+});
+
+test('exerciseTrack force la durée sur un exercice chronométré, quel que soit le mode', () => {
+  const S = [ses('a', '2026-08-01', [set('bw-plank', 0, 65)])];
+  for (const m of ['charge', 'e1rm', 'volses', 'volset', 'reps', 'auto']) {
+    const p = E.exerciseTrack(S, 'bw-plank', IX, 80, m)[0];
+    assert.equal(p.v, 65, `mode ${m} : un gainage se suit en secondes`);
+    assert.equal(p.unit, 's');
+  }
+});
+
+test('exerciseTrack en mode auto reprend exerciseMax', () => {
+  const S = [
+    ses('a', '2026-08-01', [set('bw-pushup', 0, 20)]),
+    ses('b', '2026-08-08', [set('bb-squat', 100, 5)])
+  ];
+  assert.deepEqual(E.exerciseTrack(S, 'bw-pushup', IX, 80, 'auto'),
+    E.exerciseMax(S, 'bw-pushup', IX, 80));
+  assert.deepEqual(E.exerciseTrack(S, 'bb-squat', IX, 80),
+    E.exerciseMax(S, 'bb-squat', IX, 80), 'sans mode, c’est auto');
+});
+
+test('exerciseTrack tient compte du poids de corps daté', () => {
+  const bwAt = (d) => (d === '2026-08-01' ? 80 : 70);
+  const S = [
+    ses('a', '2026-08-01', [set('bw-pullup', 0, 8)]),
+    ses('b', '2026-08-08', [set('bw-pullup', 0, 8)])
+  ];
+  const pts = E.exerciseTrack(S, 'bw-pullup', IX, bwAt, 'charge');
+  assert.equal(pts[0].v, 80);
+  assert.equal(pts[1].v, 70);
 });
 
 /* 8. Volume par groupe ------------------------------------------------ */

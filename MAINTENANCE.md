@@ -385,7 +385,16 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
   100 kg × 5. Pour quelqu'un qui cherche à devenir fort, c'est le signal inverse de celui
   qu'il faut. `E.sessionStats().vol` et `E.groupVolume()` restent dans le moteur, testés,
   mais ne sont plus affichés.
-- **Ce qu'on suit, c'est le MAX ATTEINT par exercice** (`E.exerciseMax`) : la charge la plus
+- **La grandeur suivie est un CHOIX, pas une vérité.** Un menu déroulant en tête de l'onglet
+  Progrès : charge max, 1RM théorique, volume max sur une série, volume total de la séance,
+  répétitions max — plus un mode « le plus parlant » qui s'adapte à l'exercice.
+  Aucune n'est la bonne dans l'absolu : la charge dit la force, les reps l'endurance, le volume
+  le travail fourni, le 1RM estime un maximum jamais tenté. Le tonnage reprend ainsi sa place —
+  l'objection portait sur le fait qu'il soit LA mesure, pas sur son existence.
+  Piège à connaître : **Epley surévalue les séries longues**. 90 kg × 15 donne un 1RM estimé de
+  135 kg, contre 131 pour 103,5 kg × 8. C'est mathématiquement correct et physiologiquement
+  douteux — d'où l'intérêt de pouvoir changer de grandeur plutôt que d'en imposer une.
+- **Ce qu'on suit par défaut, c'est le MAX ATTEINT par exercice** (`E.exerciseMax`) : la charge la plus
   lourde de chaque séance, à charge égale la série la plus longue. Pas de 1RM estimé —
   une estimation n'est pas une performance. Un bloc par exercice dans l'onglet Progrès :
   il y a une poignée d'exercices, pas besoin d'un sélecteur.
