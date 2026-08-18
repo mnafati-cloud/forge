@@ -68,6 +68,12 @@ deux barres de **6 kg et 7,5 kg**, des barres d'haltères de **2 kg**, et des di
 à un seul utilisateur, les valeurs par défaut doivent être les SIENNES, pas celles
 d'une salle de sport générique.
 
+**Veste lestée de 10 kg** portée au squat, et COMPTÉE dans la charge saisie. Elle n'est
+pourtant pas sur la barre : `platesLine()` la retire avant de calculer les disques, sinon
+l'app annonce 5 kg de trop par côté à chaque série. `set.vest` = son poids, `set.vestEx` =
+les exercices où elle est portée (bouton « Veste » du pavé, mémorisé par exercice).
+La série ENREGISTRÉE garde le total porté — c'est bien ce que le corps a soulevé.
+
 En pratique : squat et développé sur la barre de 7,5, rowing sur celle de 6. Une charge
 donnée ne tombe généralement juste qu'avec UNE des deux barres (54 kg = 6 + 2×24 ; avec
 la barre de 7,5 il faudrait 23,25 par côté). D'où `E.platePlanBest(cible, barres, disques)`
@@ -322,6 +328,13 @@ fermer. D'où le drapeau `retourInterne`. Toute fermeture programmatique doit se
 Un clavier français produit « 42,5 ». Le champ devient invalide et `.value` renvoie une chaîne
 VIDE : la charge partait à zéro. Les champs de saisie sont passés en `type="text"` +
 `inputmode="decimal"`, avec une normalisation virgule → point à la lecture.
+
+**P21 — La charge saisie n'est pas toujours ce qu'il y a sur la barre.**
+Une veste lestée de 10 kg est portée au squat et comptée dans le total. Le calcul des
+disques travaillait sur ce total et annonçait donc un disque de 5 kg en trop de chaque côté,
+à chaque série. Signal qui aurait dû alerter : ce 5 kg apparaissait sur TOUTES les séries de
+squat et sur aucune autre — une constante qui traverse un seul exercice n'est jamais un hasard.
+Toute charge « portée mais pas sur la barre » doit être déduite avant `platePlanBest`.
 
 **P20 — Des valeurs par défaut inventées sont des valeurs fausses.**
 `DEF_SET` portait une barre de 20 kg et des disques de salle (15 / 2,5 / 1,25). L'utilisateur

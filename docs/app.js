@@ -218,6 +218,8 @@
        C'est le seul endroit où l'app touche un réglage de l'utilisateur, et elle
        ne le fait qu'une fois, pour une raison écrite. */
     if (!s.mig || typeof s.mig !== 'object') s.mig = {};
+    if (!s.set.vestEx || typeof s.set.vestEx !== 'object') s.set.vestEx = {};
+    if (!isFinite(Number(s.set.vest)) || Number(s.set.vest) < 0) s.set.vest = 0;
     if (!Array.isArray(s.set.bars) || !s.set.bars.length) s.set.bars = [Number(s.set.bar) || 20];
     s.set.bars = s.set.bars.map(Number).filter(function (b) { return b >= 0; });
     if (!s.set.bars.length) s.set.bars = [20];
@@ -800,7 +802,7 @@
       '<button class="pl" data-act="w+" data-step="' + step + '" aria-label="Augmenter la charge">' + ico('plus') + '</button>' +
       '</div>';
 
-    if (ex.bar) h += '<div class="plates" id="padPlates">' + platesLine(UI.w) + '</div>';
+    if (ex.bar) h += '<div class="plates" id="padPlates">' + platesLine(UI.w, ex.id) + '</div>';
     else if (ex.uni) h += '<div class="plates">charge d’UN côté — enregistre une série par côté</div>';
     else if (ex.sec) h += '<div class="plates">durée en secondes — hors tonnage, le record est le temps tenu</div>';
     else if (ex.bw) h += '<div class="plates">0 = poids du corps seul' +
@@ -828,6 +830,11 @@
       '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu" aria-pressed="' + (UI.wu ? 'true' : 'false') + '">' +
       ico('flame', 17) + 'Échauffement</button>' +
       '<button class="chip" data-act="rest-now">' + ico('timer', 17) + 'Repos</button>' +
+      (ex.bar && Number(ST.set.vest) > 0
+        ? '<button class="chip' + (vesteDe(ex.id) ? ' on' : '') + '" data-act="vest" data-id="' +
+          esc(ex.id) + '" aria-pressed="' + (vesteDe(ex.id) ? 'true' : 'false') + '">' +
+          'Veste ' + num(ST.set.vest) + ' kg</button>'
+        : '') +
       (UI.edit >= 0 ? '<span class="grow"></span><button class="chip" data-act="cancel-edit">Annuler la modif</button>' : '') +
       '</div>';
 
@@ -863,18 +870,32 @@
    * avec deux barres de poids différents, une charge donnée ne tombe souvent
    * juste qu'avec l'une des deux.
    */
-  function platesLine(target) {
+  /** Poids de la veste à déduire pour cet exercice, 0 si elle n'est pas portée. */
+  function vesteDe(exId) {
+    var v = Number(ST.set.vest) || 0;
+    return (v > 0 && ST.set.vestEx && ST.set.vestEx[exId]) ? v : 0;
+  }
+
+  /**
+   * Ligne « quels disques mettre ». Essaie TOUTES les barres disponibles, et
+   * retire d'abord la veste lestée : elle est comptée dans la charge saisie mais
+   * portée sur les épaules, pas enfilée sur la barre. Sans cette déduction,
+   * l'app annonçait 5 kg de trop par côté à chaque série de squat.
+   */
+  function platesLine(target, exId) {
+    var veste = vesteDe(exId);
+    var surBarre = target - veste;
     var barres = ST.set.bars && ST.set.bars.length ? ST.set.bars : [ST.set.bar];
-    var p = E.platePlanBest(target, barres, ST.set.plates);
-    var plusieurs = barres.length > 1;
-    var nomBarre = plusieurs ? 'barre ' + num(p.bar) + ' · ' : '';
+    var p = E.platePlanBest(surBarre, barres, ST.set.plates);
+    var pre = (veste ? 'veste ' + num(veste) + ' · ' : '') +
+      (barres.length > 1 ? 'barre ' + num(p.bar) + ' · ' : '');
 
     if (!p.ok) {
       return '<span class="warnc">' + ico('alert', 14) +
-        ' non chargeable — le plus proche : <b>' + num(p.total) + ' kg</b></span>';
+        ' non chargeable — le plus proche : <b>' + num(E.r2(p.total + veste)) + ' kg</b></span>';
     }
-    if (!p.side.length) return nomBarre + 'à vide (' + num(p.bar) + ' kg)';
-    return nomBarre + 'par côté : ' + p.side.map(function (x) {
+    if (!p.side.length) return pre + 'barre à vide (' + num(p.bar) + ' kg)';
+    return pre + 'par côté : ' + p.side.map(function (x) {
       return '<b>' + (x.n > 1 ? x.n + '×' : '') + num(x.w) + '</b>';
     }).join(' + ') + ' kg';
   }
@@ -1551,6 +1572,11 @@
       esc((s.bars || [s.bar]).map(num).join(', ')) + '">' +
       '<div class="hint">Séparées par des virgules. L’app choisit celle qui permet ' +
       'de tomber juste sur la charge saisie.</div></div>' +
+      '<div class="field"><label for="stVest">Veste lestée (kg)</label>' +
+      '<input id="stVest" type="text" inputmode="decimal" autocomplete="off" value="' + num(s.vest) + '">' +
+      '<div class="hint">Comptée dans la charge saisie, mais retirée du calcul des disques : ' +
+      'elle est sur tes épaules, pas sur la barre. 0 pour la désactiver. ' +
+      'Le bouton « Veste » du pavé dit sur quels exercices tu la portes.</div></div>' +
       '<div class="field"><label>Disques disponibles</label>' +
       '<div id="plateEd">' + plateEditor() + '</div>' +
       '<div class="hint">Nombre de PAIRES de chaque disque. Sert au calcul « par côté » pendant la séance.</div></div>' +
@@ -1745,6 +1771,11 @@
     var v;
     v = parseFloat(g('stStep')); if (v > 0) ST.set.step = v;
     v = parseInt(g('stRest'), 10); if (v >= 0) ST.set.rest = v;
+    v = g('stVest');
+    if (v !== null) {
+      var vv = parseFloat(String(v).replace(',', '.'));
+      if (isFinite(vv) && vv >= 0) ST.set.vest = E.r2(vv);
+    }
     v = g('stBars');
     if (v !== null) {
       var lb = String(v).split(/[,;]/).map(function (x) {
@@ -2033,6 +2064,17 @@
     /* --- chrono de repos --- */
     if (a === 'undo') { var uf = undoFn; hideToast(); if (uf) uf(); return; }
     if (a === 'rest-now') { restStart(ST.set.rest); return; }
+    if (a === 'vest') {
+      var vid = t.dataset.id;
+      if (!ST.set.vestEx || typeof ST.set.vestEx !== 'object') ST.set.vestEx = {};
+      if (ST.set.vestEx[vid]) delete ST.set.vestEx[vid]; else ST.set.vestEx[vid] = 1;
+      save();
+      t.className = 'chip' + (vesteDe(vid) ? ' on' : '');
+      t.setAttribute('aria-pressed', vesteDe(vid) ? 'true' : 'false');
+      var pv = $('padPlates');
+      if (pv) pv.innerHTML = platesLine(UI.w, vid);
+      return;
+    }
     if (a === 'ex-del') {
       var xid = t.dataset.id;
       if (!ST.cur) return;
@@ -2349,7 +2391,7 @@
     if (ev.target.id === 'padW' || ev.target.id === 'padR') {
       readPad();
       var pl = $('padPlates');
-      if (pl) pl.innerHTML = platesLine(UI.w);
+      if (pl) pl.innerHTML = platesLine(UI.w, UI.act);
       syncAddState();
     }
   });
@@ -2374,7 +2416,7 @@
     var w = $('padW'), r = $('padR'), pl = $('padPlates');
     if (w) w.value = num(UI.w);
     if (r) r.value = UI.r | 0;
-    if (pl) pl.innerHTML = platesLine(UI.w);
+    if (pl) pl.innerHTML = platesLine(UI.w, UI.act);
   }
 
   function syncName() {

@@ -57,6 +57,8 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
       { w: 2, n: 2 }, { w: 1, n: 2 }, { w: 0.5, n: 2 }
     ],
     step: 2,
+    vest: 10,
+    vestEx: { 'bb-squat': 1 },
     rest: 120,
     restAuto: false,
     sound: true,

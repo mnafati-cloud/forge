@@ -38,6 +38,12 @@
       { w: 2, n: 2 }, { w: 1, n: 2 }, { w: 0.5, n: 2 }
     ],
     step: 2,
+    /* Charge portée SUR SOI et comptée dans le total saisi, mais qui n'est PAS
+       sur la barre : une veste lestée. Sans elle, le calcul des disques annonce
+       10 kg de trop à chaque série de squat. `vestEx` retient les exercices où
+       elle est portée. */
+    vest: 10,
+    vestEx: { 'bb-squat': 1 },
     rest: 120,
     restAuto: false,
     sound: true,
