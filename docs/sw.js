@@ -1,7 +1,7 @@
 /* Forge — service worker.
  *
  * RÈGLE DE RELEASE : à CHAQUE modification d'un fichier de docs/, incrémenter CACHE
- * (forge-v7 -> forge-v8 …). Un fichier JS/CSS ajouté dans docs/ doit AUSSI être
+ * (forge-v8 -> forge-v9 …). Un fichier JS/CSS ajouté dans docs/ doit AUSSI être
  * ajouté à ASSETS, sinon il ne sera pas disponible hors-ligne.
  *
  * Stratégie : network-first, avec trois garde-fous appris à la relecture.
@@ -14,7 +14,7 @@
  *     404 rejette tout le lot et laisse un cache VIDE alors que le service worker
  *     prend la main — l'app devient inutilisable hors-ligne sans le signaler.
  */
-const CACHE = 'forge-v7';
+const CACHE = 'forge-v8';
 const DELAI_RESEAU = 3500;
 
 const ASSETS = [

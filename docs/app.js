@@ -218,11 +218,32 @@
        C'est le seul endroit où l'app touche un réglage de l'utilisateur, et elle
        ne le fait qu'une fois, pour une raison écrite. */
     if (!s.mig || typeof s.mig !== 'object') s.mig = {};
+    if (!Array.isArray(s.set.bars) || !s.set.bars.length) s.set.bars = [Number(s.set.bar) || 20];
+    s.set.bars = s.set.bars.map(Number).filter(function (b) { return b >= 0; });
+    if (!s.set.bars.length) s.set.bars = [20];
     if (!s.mig.restAutoOff) {
       // Le chrono automatique donnait l'impression d'être mis sous pression à
       // chaque série. Il redevient volontaire : le bouton « Repos » du pavé.
       s.set.restAuto = false;
       s.mig.restAutoOff = 1;
+      migAppliquee = true;
+    }
+    if (!s.mig.materiel) {
+      /* Le matériel par défaut d'origine (barre 20 kg, disques de salle) ne
+         correspondait pas du tout à l'équipement réel : 6 charges sur 11 de la
+         séance du 17 étaient annoncées « non chargeable ». On remplace, mais
+         UNIQUEMENT si les réglages n'ont jamais été touchés à la main. */
+      var ancienJeu = [[20, 2], [15, 2], [10, 2], [5, 2], [2.5, 2], [1.25, 2]];
+      var actuel = (s.set.plates || []).map(function (x) { return [x.w, x.n]; });
+      var intact = s.set.bar === 20 &&
+        JSON.stringify(actuel) === JSON.stringify(ancienJeu);
+      if (intact) {
+        s.set.bar = d.set.bar;
+        s.set.bars = d.set.bars.slice();
+        s.set.plates = JSON.parse(JSON.stringify(d.set.plates));
+        s.set.step = d.set.step;
+      }
+      s.mig.materiel = 1;
       migAppliquee = true;
     }
     if (!s.mig.nomsAuto) {
@@ -837,16 +858,24 @@
     return m === Infinity ? 0 : m;
   }
 
+  /**
+   * Ligne « quels disques mettre ». Essaie TOUTES les barres disponibles :
+   * avec deux barres de poids différents, une charge donnée ne tombe souvent
+   * juste qu'avec l'une des deux.
+   */
   function platesLine(target) {
-    var p = E.platePlan(target, ST.set.bar, ST.set.plates);
-    if (Math.abs(target - ST.set.bar) < 0.001) return 'barre à vide (' + num(ST.set.bar) + ' kg)';
+    var barres = ST.set.bars && ST.set.bars.length ? ST.set.bars : [ST.set.bar];
+    var p = E.platePlanBest(target, barres, ST.set.plates);
+    var plusieurs = barres.length > 1;
+    var nomBarre = plusieurs ? 'barre ' + num(p.bar) + ' · ' : '';
+
     if (!p.ok) {
-      var near = E.nearestLoadable(target, ST.set.bar, ST.set.plates);
-      return '<span class="warnc">' + ico('alert', 14) + ' non chargeable — le plus proche : <b>' + num(near) + ' kg</b></span>';
+      return '<span class="warnc">' + ico('alert', 14) +
+        ' non chargeable — le plus proche : <b>' + num(p.total) + ' kg</b></span>';
     }
-    if (!p.side.length) return 'barre seule';
-    return 'par côté : ' + p.side.map(function (s) {
-      return '<b>' + (s.n > 1 ? s.n + '×' : '') + num(s.w) + '</b>';
+    if (!p.side.length) return nomBarre + 'à vide (' + num(p.bar) + ' kg)';
+    return nomBarre + 'par côté : ' + p.side.map(function (x) {
+      return '<b>' + (x.n > 1 ? x.n + '×' : '') + num(x.w) + '</b>';
     }).join(' + ') + ' kg';
   }
 
@@ -1516,9 +1545,12 @@
       toggle('stVib', 'Vibration', '', s.vibrate) +
       '</div>';
 
-    h += '<div class="card"><h2>Barre et disques</h2>' +
-      '<div class="field"><label>Poids de la barre (kg)</label>' +
-      '<input id="stBar" type="number" step="0.5" value="' + dec(s.bar) + '"></div>' +
+    h += '<div class="card"><h2>Barres et disques</h2>' +
+      '<div class="field"><label for="stBars">Barres disponibles (kg)</label>' +
+      '<input id="stBars" type="text" inputmode="decimal" autocomplete="off" value="' +
+      esc((s.bars || [s.bar]).map(num).join(', ')) + '">' +
+      '<div class="hint">Séparées par des virgules. L’app choisit celle qui permet ' +
+      'de tomber juste sur la charge saisie.</div></div>' +
       '<div class="field"><label>Disques disponibles</label>' +
       '<div id="plateEd">' + plateEditor() + '</div>' +
       '<div class="hint">Nombre de PAIRES de chaque disque. Sert au calcul « par côté » pendant la séance.</div></div>' +
@@ -1713,7 +1745,13 @@
     var v;
     v = parseFloat(g('stStep')); if (v > 0) ST.set.step = v;
     v = parseInt(g('stRest'), 10); if (v >= 0) ST.set.rest = v;
-    v = parseFloat(g('stBar')); if (v >= 0) ST.set.bar = v;
+    v = g('stBars');
+    if (v !== null) {
+      var lb = String(v).split(/[,;]/).map(function (x) {
+        return parseFloat(String(x).replace(',', '.').trim());
+      }).filter(function (x) { return isFinite(x) && x >= 0; });
+      if (lb.length) { ST.set.bars = lb; ST.set.bar = lb[lb.length - 1]; }
+    }
     v = parseFloat(g('stBw')); if (v > 0) ST.set.bw = v;
     v = g('stTheme'); if (v) ST.set.theme = v;
     var tk = $('ghtok');

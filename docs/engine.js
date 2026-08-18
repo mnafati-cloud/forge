@@ -29,12 +29,15 @@
   /* ------------------------------------------------------------------ */
   var DEF_SET = {
     unit: 'kg',
-    bar: 20,
+    /* Matériel réel : deux barres (6 et 7,5 kg) et des disques 20/10/5/2/1/0,5.
+       `bar` reste la barre principale ; `bars` liste tout ce qui est disponible. */
+    bar: 7.5,
+    bars: [6, 7.5],
     plates: [
-      { w: 20, n: 2 }, { w: 15, n: 2 }, { w: 10, n: 2 },
-      { w: 5, n: 2 }, { w: 2.5, n: 2 }, { w: 1.25, n: 2 }
+      { w: 20, n: 2 }, { w: 10, n: 2 }, { w: 5, n: 2 },
+      { w: 2, n: 2 }, { w: 1, n: 2 }, { w: 0.5, n: 2 }
     ],
-    step: 2.5,
+    step: 2,
     rest: 120,
     restAuto: false,
     sound: true,
@@ -477,6 +480,35 @@
     return res;
   }
 
+  /**
+   * Même chose, mais avec PLUSIEURS barres disponibles.
+   * Une salle maison a rarement une seule barre : ici une de 6 kg et une de 7,5 kg,
+   * et une charge donnée ne tombe juste qu'avec l'une des deux (54 kg = 6 + 2×24,
+   * mais 54 avec la barre de 7,5 demanderait 23,25 par côté).
+   * Renvoie le meilleur plan, augmenté du champ `bar` : la barre à utiliser.
+   * Départage : une solution exacte l'emporte toujours ; à égalité, le moins de
+   * disques à enfiler ; puis la barre la plus lourde (moins de disques à manipuler).
+   */
+  function platePlanBest(target, bars, plates) {
+    var liste = (bars || []).filter(function (b) { return Number(b) >= 0; });
+    if (!liste.length) liste = [0];
+    var best = null, i, p, nb;
+    for (i = 0; i < liste.length; i++) {
+      p = platePlan(target, liste[i], plates);
+      p.bar = Number(liste[i]);
+      nb = p.side.reduce(function (a, x) { return a + x.n; }, 0);
+      p.nbDisques = nb;
+      if (!best) { best = p; continue; }
+      if (p.ok !== best.ok) { if (p.ok) best = p; continue; }
+      if (p.ok) {
+        if (nb < best.nbDisques || (nb === best.nbDisques && p.bar > best.bar)) best = p;
+      } else if (p.total > best.total || (p.total === best.total && p.bar > best.bar)) {
+        best = p;                       // aucune solution exacte : la plus proche PAR EN DESSOUS
+      }
+    }
+    return best;
+  }
+
   /** Plus petit incrément possible sur la barre = 2 × le plus léger disque dispo. */
   function smallestStep(plates) {
     var m = Infinity, i;
@@ -556,6 +588,7 @@
     weekSeries: weekSeries,
     weekStreak: weekStreak,
     platePlan: platePlan,
+    platePlanBest: platePlanBest,
     nearestLoadable: nearestLoadable,
     fmtDur: fmtDur,
     fmtClock: fmtClock,

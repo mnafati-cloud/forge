@@ -11,6 +11,13 @@ const CAT = require('../docs/exercises.js');
 
 const IX = E.indexExercises(CAT.EXERCISES);
 
+/* Jeu de disques « salle classique » : les tests de platePlan écrits avant que
+   DEF_SET ne porte le matériel réel de l'utilisateur s'appuient dessus. */
+const JEU_CLASSIQUE = [
+  { w: 20, n: 2 }, { w: 15, n: 2 }, { w: 10, n: 2 },
+  { w: 5, n: 2 }, { w: 2.5, n: 2 }, { w: 1.25, n: 2 }
+];
+
 /* Fixtures ------------------------------------------------------------ */
 
 function set(x, w, r, extra) {
@@ -43,12 +50,13 @@ const SESSIONS = [
 test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test)', () => {
   assert.deepEqual(E.DEF_SET, {
     unit: 'kg',
-    bar: 20,
+    bar: 7.5,
+    bars: [6, 7.5],
     plates: [
-      { w: 20, n: 2 }, { w: 15, n: 2 }, { w: 10, n: 2 },
-      { w: 5, n: 2 }, { w: 2.5, n: 2 }, { w: 1.25, n: 2 }
+      { w: 20, n: 2 }, { w: 10, n: 2 }, { w: 5, n: 2 },
+      { w: 2, n: 2 }, { w: 1, n: 2 }, { w: 0.5, n: 2 }
     ],
-    step: 2.5,
+    step: 2,
     rest: 120,
     restAuto: false,
     sound: true,
@@ -371,29 +379,29 @@ test('weekStreak compte les semaines consécutives, semaine en cours vide tolér
 /* 10. Calcul des disques ---------------------------------------------- */
 
 test('platePlan répartit les disques par côté', () => {
-  const p = E.platePlan(60, 20, E.DEF_SET.plates);
+  const p = E.platePlan(60, 20, JEU_CLASSIQUE);
   assert.equal(p.ok, true);
   assert.equal(p.total, 60);
   assert.deepEqual(p.side, [{ w: 20, n: 1 }]);
 });
 
 test('platePlan combine plusieurs disques et signale le manque', () => {
-  const p = E.platePlan(42.5, 20, E.DEF_SET.plates);
+  const p = E.platePlan(42.5, 20, JEU_CLASSIQUE);
   assert.equal(p.ok, true);
   assert.deepEqual(p.side, [{ w: 10, n: 1 }, { w: 1.25, n: 1 }]);
 
-  const q = E.platePlan(41, 20, E.DEF_SET.plates);
+  const q = E.platePlan(41, 20, JEU_CLASSIQUE);
   assert.equal(q.ok, false);
   assert.equal(q.total, 40);
   assert.equal(q.diff, 1);
 });
 
 test('platePlan gère la barre seule et les cibles impossibles', () => {
-  const bar = E.platePlan(20, 20, E.DEF_SET.plates);
+  const bar = E.platePlan(20, 20, JEU_CLASSIQUE);
   assert.equal(bar.ok, true);
   assert.deepEqual(bar.side, []);
 
-  const light = E.platePlan(10, 20, E.DEF_SET.plates);
+  const light = E.platePlan(10, 20, JEU_CLASSIQUE);
   assert.equal(light.ok, false);
   assert.ok(light.diff < 0);
 });
@@ -421,16 +429,65 @@ test('platePlan reste exact avec un jeu de disques réduit', () => {
 });
 
 test('platePlan ne dépasse jamais le nombre de paires disponibles', () => {
-  const p = E.platePlan(300, 20, E.DEF_SET.plates);
+  const p = E.platePlan(300, 20, JEU_CLASSIQUE);
   const byW = Object.fromEntries(p.side.map((s) => [s.w, s.n]));
-  for (const pl of E.DEF_SET.plates) assert.ok((byW[pl.w] || 0) <= pl.n, `trop de disques de ${pl.w}`);
+  for (const pl of JEU_CLASSIQUE) assert.ok((byW[pl.w] || 0) <= pl.n, `trop de disques de ${pl.w}`);
   assert.ok(p.diff > 0);
 });
 
+test('platePlanBest choisit la barre qui tombe juste', () => {
+  // Matériel réel : deux barres (6 et 7,5 kg) et des disques 20/10/5/2/1/0,5.
+  const JEU = [{ w: 20, n: 2 }, { w: 10, n: 2 }, { w: 5, n: 2 },
+    { w: 2, n: 2 }, { w: 1, n: 2 }, { w: 0.5, n: 2 }];
+  const BARRES = [6, 7.5];
+
+  const squat = E.platePlanBest(103.5, BARRES, JEU);
+  assert.equal(squat.ok, true);
+  assert.equal(squat.bar, 7.5, '103,5 n’est atteignable qu’avec la barre de 7,5');
+  assert.equal(squat.total, 103.5);
+
+  const row = E.platePlanBest(54, BARRES, JEU);
+  assert.equal(row.ok, true);
+  assert.equal(row.bar, 6, '54 n’est atteignable qu’avec la barre de 6');
+
+  // Chaque charge réellement soulevée le 17 août doit tomber juste.
+  for (const c of [77.5, 97.5, 101.5, 103.5, 47.5, 67.5, 69.5, 71.5, 46, 50, 52]) {
+    assert.equal(E.platePlanBest(c, BARRES, JEU).ok, true, `${c} kg devrait être chargeable`);
+  }
+});
+
+test('platePlanBest préfère la solution avec le moins de disques', () => {
+  const JEU = [{ w: 10, n: 2 }, { w: 5, n: 2 }, { w: 1, n: 4 }];
+  // 26 = barre 6 + 10 par côté (1 disque), ou barre 16 + 5 par côté (1 disque aussi).
+  const r = E.platePlanBest(26, [6, 16], JEU);
+  assert.equal(r.ok, true);
+  assert.ok(r.bar === 6 || r.bar === 16);
+  assert.equal(r.total, 26);
+  // 28 = barre 6 + 10 + 1 (2 disques) ; barre 16 + 5 + 1 (2 disques) : les deux marchent.
+  assert.equal(E.platePlanBest(28, [6, 16], JEU).ok, true);
+});
+
+test('platePlanBest signale le manque avec la barre la plus proche', () => {
+  const JEU = [{ w: 20, n: 1 }];
+  const r = E.platePlanBest(100, [6, 7.5], JEU);
+  assert.equal(r.ok, false);
+  assert.ok(r.total <= 100, 'la charge annoncée ne doit jamais dépasser la cible');
+  assert.ok(r.diff > 0);
+  assert.ok(r.bar === 6 || r.bar === 7.5);
+});
+
+test('platePlanBest accepte une barre unique et se comporte comme platePlan', () => {
+  const p1 = E.platePlanBest(60, [20], JEU_CLASSIQUE);
+  const p2 = E.platePlan(60, 20, JEU_CLASSIQUE);
+  assert.equal(p1.ok, p2.ok);
+  assert.equal(p1.total, p2.total);
+  assert.equal(p1.bar, 20);
+});
+
 test('nearestLoadable arrondit vers la charge réalisable la plus proche', () => {
-  assert.equal(E.nearestLoadable(42.5, 20, E.DEF_SET.plates), 42.5);
-  assert.equal(E.nearestLoadable(41, 20, E.DEF_SET.plates), 40);
-  assert.equal(E.nearestLoadable(42, 20, E.DEF_SET.plates), 42.5);
+  assert.equal(E.nearestLoadable(42.5, 20, JEU_CLASSIQUE), 42.5);
+  assert.equal(E.nearestLoadable(41, 20, JEU_CLASSIQUE), 40);
+  assert.equal(E.nearestLoadable(42, 20, JEU_CLASSIQUE), 42.5);
 });
 
 /* 11. Arrondis et formatage ------------------------------------------- */

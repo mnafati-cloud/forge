@@ -62,6 +62,17 @@ Les blocs affichés = `p` ∪ (exercices ayant au moins une série) — voir `se
 
 `plates[i].n` = nombre de **paires** disponibles du disque `plates[i].w`.
 
+**Le matériel réel de l'utilisateur** (mesuré sur ses séances, pas supposé) :
+deux barres de **6 kg et 7,5 kg**, des barres d'haltères de **2 kg**, et des disques
+**20 / 10 / 5 / 2 / 1 / 0,5 kg**. C'est ce que porte `DEF_SET` — dans une application
+à un seul utilisateur, les valeurs par défaut doivent être les SIENNES, pas celles
+d'une salle de sport générique.
+
+En pratique : squat et développé sur la barre de 7,5, rowing sur celle de 6. Une charge
+donnée ne tombe généralement juste qu'avec UNE des deux barres (54 kg = 6 + 2×24 ; avec
+la barre de 7,5 il faudrait 23,25 par côté). D'où `E.platePlanBest(cible, barres, disques)`
+qui les essaie toutes et renvoie celle qui marche.
+
 **Ajouter un réglage** = 3 gestes dans le **même commit** :
 1. la clé dans `DEF_SET` (engine.js) ;
 2. le `assert.deepEqual` du test contractuel (`tests/engine.test.mjs`, premier test) ;
@@ -312,6 +323,13 @@ Un clavier français produit « 42,5 ». Le champ devient invalide et `.value` r
 VIDE : la charge partait à zéro. Les champs de saisie sont passés en `type="text"` +
 `inputmode="decimal"`, avec une normalisation virgule → point à la lecture.
 
+**P20 — Des valeurs par défaut inventées sont des valeurs fausses.**
+`DEF_SET` portait une barre de 20 kg et des disques de salle (15 / 2,5 / 1,25). L'utilisateur
+a des barres de 6 et 7,5 kg et des disques de 2 / 1 / 0,5. Résultat : **6 charges sur 11** de
+sa première vraie séance affichaient « non chargeable », avec une suggestion fausse. Le défaut
+n'était pas neutre, il était faux — et invisible tant que personne n'avait soulevé pour de vrai.
+Leçon : sur une app à un seul utilisateur, demander le matériel plutôt que de le supposer.
+
 **P19 — Le nettoyeur d'état réinjectait un nom générique.**
 `saineSeance()` faisait `n: z.n ? z.n : 'Séance'`. Un nom VIDE est pourtant une valeur
 légitime — c'est ce qui fait afficher la séance par sa date. Résultat : à chaque chargement,
@@ -379,7 +397,7 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
 [ ] ASSETS à jour dans docs/sw.js             → si un fichier a été ajouté à docs/
 [ ] python3 -m http.server 8123 --directory docs, puis :
       [ ] démarrer une séance, ajouter un exercice à la barre
-      [ ] valider 2 séries → le calcul « par côté » est juste
+      [ ] valider 2 séries → le calcul « par côté » est juste, et nomme la bonne barre
       [ ] le chrono de repos démarre, +30 s et Passer fonctionnent
       [ ] modifier une série (tap sur la ligne), en supprimer une
       [ ] le chrono NE démarre PAS tout seul après une série
