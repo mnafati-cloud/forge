@@ -329,6 +329,12 @@ Un clavier français produit « 42,5 ». Le champ devient invalide et `.value` r
 VIDE : la charge partait à zéro. Les champs de saisie sont passés en `type="text"` +
 `inputmode="decimal"`, avec une normalisation virgule → point à la lecture.
 
+**P22 — `closeSheet()` dépilait l'historique sans feuille ouverte.**
+Appelé alors qu'aucune feuille n'était affichée, il exécutait quand même `history.back()` —
+donc consommait une entrée qui ne lui appartenait pas et **faisait quitter l'application**.
+Déclenché depuis « Refaire une séance » de l'accueil. Une fonction de fermeture doit vérifier
+qu'il y avait quelque chose à fermer avant de toucher à l'historique.
+
 **P21 — La charge saisie n'est pas toujours ce qu'il y a sur la barre.**
 Une veste lestée de 10 kg est portée au squat et comptée dans le total. Le calcul des
 disques travaillait sur ce total et annonçait donc un disque de 5 kg en trop de chaque côté,
@@ -373,6 +379,21 @@ téléphone à l'autre. Tout est passé en SVG de trait (`ICONS` / `ico()` dans 
   d'avoir la dernière version, avec le cache comme filet pour une séance hors-ligne.
 - **Un seul écran de saisie visible à la fois** (l'exercice actif se déplie, les autres se replient) :
   entre deux séries, on a une main libre et 20 secondes.
+- **Le tonnage ne s'affiche plus nulle part.** Objection de l'utilisateur, imparable :
+  « je pourrais disposer les poids par 4 et en faire 10 fois plus si on suit ta logique ».
+  Le tonnage récompense le volume au détriment de l'intensité — 40 kg × 100 reps « battent »
+  100 kg × 5. Pour quelqu'un qui cherche à devenir fort, c'est le signal inverse de celui
+  qu'il faut. `E.sessionStats().vol` et `E.groupVolume()` restent dans le moteur, testés,
+  mais ne sont plus affichés.
+- **Ce qu'on suit, c'est le MAX ATTEINT par exercice** (`E.exerciseMax`) : la charge la plus
+  lourde de chaque séance, à charge égale la série la plus longue. Pas de 1RM estimé —
+  une estimation n'est pas une performance. Un bloc par exercice dans l'onglet Progrès :
+  il y a une poignée d'exercices, pas besoin d'un sélecteur.
+- **Une fonctionnalité sans usage est éteinte, pas défendue.** Le calcul des disques et le
+  marquage des échauffements sont passés en option, éteints : le premier sert à qui change
+  souvent de charge (pas le cas ici), le second n'excluait la série que d'un tonnage qui
+  n'existe plus. Tant que rien ne CONSEILLE la séance suivante, une donnée collectée « au
+  cas où » est du bruit à l'écran.
 - **Aucun nom de séance inventé.** Le nom automatique était déduit du groupe musculaire
   dominant (« Séance pectoraux ») : c'est une logique de SPLIT. L'utilisateur refait les mêmes
   exercices à chaque séance — l'étiquette était donc absurde et changeait toute seule d'une fois

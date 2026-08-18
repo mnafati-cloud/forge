@@ -400,6 +400,13 @@
     save();
     document.body.classList.remove('resting');
     $('rest').innerHTML = '';
+    majChipRepos();
+  }
+
+  /** Le bouton « Repos » affiche la durée courante : elle change avec −30/+30. */
+  function majChipRepos() {
+    var c = document.querySelector('[data-act="rest-now"]');
+    if (c) c.innerHTML = ico('timer', 17) + 'Repos ' + E.fmtClock(ST.set.rest);
   }
   /** Reprend un repos en cours après un rechargement de la page. */
   function restResume() {
@@ -424,8 +431,9 @@
       '<div class="bar" style="width:' + pct.toFixed(1) + '%"></div>' +
       '<div class="t">' + E.fmtClock(left) + '</div>' +
       '<div class="grow lb">Repos</div>' +
-      '<button class="btn sm" data-act="rest-add">+30 s</button>' +
-      '<button class="btn sm" data-act="rest-skip">Passer</button>' +
+      '<button class="btn sm" data-act="rest-sub">−30</button>' +
+      '<button class="btn sm" data-act="rest-add">+30</button>' +
+      '<button class="btn sm" data-act="rest-skip">Stop</button>' +
       '</div>';
   }
 
@@ -433,7 +441,7 @@
   /* Séance : création, séries, clôture                                  */
   /* ================================================================== */
 
-  var UI = { tab: 'ses', act: null, w: 20, r: 8, e: 0, wu: 0, edit: -1, proEx: null };
+  var UI = { tab: 'ses', act: null, w: 20, r: 8, e: 0, wu: 0, edit: -1 };
 
   function newSession(planIds, name) {
     var now = Date.now();
@@ -585,7 +593,7 @@
     var st = E.sessionStats(Object.assign({}, ST.cur, { t1: Date.now() }), IX, bwNow());
     askDialog({
       title: 'Terminer la séance ?',
-      text: st.sets + ' séries · ' + E.fmtVol(st.vol) + ' · ' + E.fmtDur(Date.now() - ST.cur.t0),
+      text: st.sets + ' séries · ' + st.exs + ' exercices · ' + E.fmtDur(Date.now() - ST.cur.t0),
       ok: 'Terminer'
     }, function () {
       if (!ST.cur) return;
@@ -636,16 +644,12 @@
 
   function sessionIdle() {
     var h = '';
-    var wk = E.weekSeries(ST.ses, IX, bwAt);
-    var cur = wk.length && wk[wk.length - 1].k === E.weekKey(todayStr()) ? wk[wk.length - 1] : null;
-
-    h += '<div class="card">' +
-      '<h2>Cette semaine</h2>' +
-      '<div class="kpis">' +
-      kpi(cur ? cur.sessions : 0, 'séances') +
-      kpi(cur ? cur.sets : 0, 'séries') +
-      kpi(cur ? E.fmtVol(cur.vol) : '0 kg', 'tonnage') +
-      '</div></div>';
+    var derniere = ST.ses.length ? ST.ses[ST.ses.length - 1] : null;
+    if (derniere) {
+      var ecart = E.daysBetween(derniere.d, todayStr());
+      h += '<div class="lastses">Dernière séance ' + esc(relDate(derniere.d)) +
+        (ecart >= 4 ? ' — ça fait ' + ecart + ' jours' : '') + '</div>';
+    }
 
     h += '<button class="btn pri big" data-act="new-empty">' + ico('plus', 22) + 'Nouvelle séance</button>';
 
@@ -705,9 +709,9 @@
       '<button class="btn sm pri" data-act="finish">Terminer</button>' +
       '</div>' +
       '<div class="sesline">' +
-      '<span>' + st.sets + ' série' + (st.sets > 1 ? 's' : '') + '</span><span>·</span>' +
-      '<span>' + E.fmtVol(st.vol) + '</span>' +
-      (st.sec ? '<span>·</span><span>' + fmtSec(st.sec) + '</span>' : '') + '</div>' +
+      '<span>' + st.sets + ' série' + (st.sets > 1 ? 's' : '') + '</span>' +
+      (st.exs ? '<span>·</span><span>' + st.exs + ' exercice' + (st.exs > 1 ? 's' : '') + '</span>' : '') +
+      '</div>' +
       '</div>';
 
     var exs = sessionExercises(ses), i;
@@ -802,7 +806,7 @@
       '<button class="pl" data-act="w+" data-step="' + step + '" aria-label="Augmenter la charge">' + ico('plus') + '</button>' +
       '</div>';
 
-    if (ex.bar) h += '<div class="plates" id="padPlates">' + platesLine(UI.w, ex.id) + '</div>';
+    if (ex.bar && ST.set.plateCalc) h += '<div class="plates" id="padPlates">' + platesLine(UI.w, ex.id) + '</div>';
     else if (ex.uni) h += '<div class="plates">charge d’UN côté — enregistre une série par côté</div>';
     else if (ex.sec) h += '<div class="plates">durée en secondes — hors tonnage, le record est le temps tenu</div>';
     else if (ex.bw) h += '<div class="plates">0 = poids du corps seul' +
@@ -827,10 +831,12 @@
     }
 
     h += '<div class="row wrap" style="margin-bottom:var(--s3)">' +
-      '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu" aria-pressed="' + (UI.wu ? 'true' : 'false') + '">' +
-      ico('flame', 17) + 'Échauffement</button>' +
-      '<button class="chip" data-act="rest-now">' + ico('timer', 17) + 'Repos</button>' +
-      (ex.bar && Number(ST.set.vest) > 0
+      (ST.set.warmup
+        ? '<button class="chip' + (UI.wu ? ' on' : '') + '" data-act="wu" aria-pressed="' +
+          (UI.wu ? 'true' : 'false') + '">' + ico('flame', 17) + 'Échauffement</button>'
+        : '') +
+      '<button class="chip" data-act="rest-now">' + ico('timer', 17) + 'Repos ' + E.fmtClock(ST.set.rest) + '</button>' +
+      (ex.bar && ST.set.plateCalc && Number(ST.set.vest) > 0
         ? '<button class="chip' + (vesteDe(ex.id) ? ' on' : '') + '" data-act="vest" data-id="' +
           esc(ex.id) + '" aria-pressed="' + (vesteDe(ex.id) ? 'true' : 'false') + '">' +
           'Veste ' + num(ST.set.vest) + ' kg</button>'
@@ -946,8 +952,7 @@
         '<span style="color:var(--fg3)">›</span></div>' +
         '<div class="stat">' +
         '<span><b>' + st.sets + '</b> séries</span>' +
-        '<span><b>' + E.fmtVol(st.vol) + '</b></span>' +
-        '<span><b>' + st.exs + '</b> exos</span>' +
+        '<span><b>' + st.exs + '</b> exercices</span>' +
         (st.dur ? '<span><b>' + E.fmtDur(st.dur) + '</b></span>' : '') +
         '</div></button>';
     }
@@ -962,7 +967,7 @@
     var exs = sessionExercises(ses);
 
     var h = '<div class="card"><div class="kpis">' +
-      kpi(st.sets, 'séries') + kpi(E.fmtVol(st.vol), 'tonnage') +
+      kpi(st.sets, 'séries') + kpi(st.exs, 'exercices') +
       kpi(st.dur ? E.fmtDur(st.dur) : '—', 'durée') + '</div></div>';
 
     for (i = 0; i < exs.length; i++) {
@@ -1058,96 +1063,44 @@
   /* Onglet PROGRÈS                                                      */
   /* ================================================================== */
 
+  /**
+   * Onglet PROGRÈS — une seule question : « est-ce que je monte ? »
+   *
+   * Un bloc par exercice, avec le MAX ATTEINT à chaque séance. Ni tonnage ni
+   * 1RM estimé : le tonnage récompense le volume au détriment de l'intensité
+   * (40 kg x 100 reps « battent » 100 kg x 5), et une estimation n'est pas une
+   * performance. Ce qui compte, c'est ce qui a été soulevé.
+   */
   function viewProgress() {
     if (!ST.ses.length) {
-      return '<div class="empty"><div class="big">' + ico('trend', 44) + '</div>Les courbes apparaîtront après ta première séance terminée.</div>';
+      return '<div class="empty"><div class="big">' + ico('trend', 44) + '</div>' +
+        'Les courbes apparaîtront après ta première séance terminée.</div>';
     }
+
+    // Exercices classés par usage le plus récent.
+    var vus = [], i, j, x;
+    for (i = ST.ses.length - 1; i >= 0; i--) {
+      for (j = 0; j < ST.ses[i].s.length; j++) {
+        x = ST.ses[i].s[j].x;
+        if (vus.indexOf(x) < 0) vus.push(x);
+      }
+    }
+
     var h = '';
-    var wk = E.weekSeries(ST.ses, IX, bwAt);
-    var thisK = E.weekKey(todayStr()), prevK = E.weekKey(E.shiftDate(todayStr(), -7));
-    var cw = null, pw = null, i;
-    for (i = 0; i < wk.length; i++) {
-      if (wk[i].k === thisK) cw = wk[i];
-      if (wk[i].k === prevK) pw = wk[i];
-    }
-    var cv = cw ? cw.vol : 0, pv = pw ? pw.vol : 0;
-    var dv = pv > 0 ? Math.round(((cv - pv) / pv) * 100) : null;
-    /* Un bond de +45 % de tonnage n'est pas une bonne nouvelle pour quelqu'un qui
-       reprend : c'est le meilleur moyen de se blesser. On ne verdit donc qu'une
-       progression raisonnable, et on signale l'emballement. */
-    var ton = dv === null ? null
-      : dv > 30 ? { cls: 'dn', txt: '+' + dv + ' % — brutal' }
-        : dv >= 0 ? { cls: 'up', txt: '+' + dv + ' %' }
-          : { cls: 'dn', txt: dv + ' %' };
+    for (i = 0; i < vus.length; i++) h += blocProgres(vus[i]);
 
-    h += '<div class="card"><h2>Cette semaine</h2><div class="kpis">' +
-      kpi(cw ? cw.sessions : 0, 'séances') +
-      kpi(cw ? cw.sets : 0, 'séries') +
-      kpi(E.fmtVol(cv), 'tonnage', ton) +
-      '</div>' +
-      '<div class="small muted" style="margin-top:var(--s3)">Semaine précédente : ' + E.fmtVol(pv) + '</div>' +
-      '</div>';
+    if (!h) h += '<div class="empty">Aucune série exploitable pour l’instant.</div>';
 
-    h += '<div class="card"><h2>Tonnage par semaine</h2><div id="chWeek"></div></div>';
-
-    // Progression d'un exercice
-    var best = E.bestSets(ST.ses, IX, bwAt);
-    var ids = Object.keys(best);
-    ids.sort(function (a, b) { return exName(a).localeCompare(exName(b), 'fr'); });
-    if (!UI.proEx || ids.indexOf(UI.proEx) < 0) UI.proEx = mostUsedExercise(ids);
-
-    h += '<div class="card"><h2>Progression par exercice</h2>' +
-      '<select id="proSel" style="margin-bottom:var(--s3)">' +
-      ids.map(function (id) {
-        return '<option value="' + esc(id) + '"' + (id === UI.proEx ? ' selected' : '') + '>' + esc(exName(id)) + '</option>';
-      }).join('') + '</select>' +
-      '<div id="chEx"></div>' +
-      '<div id="exNote" class="small muted" style="margin-top:var(--s2)"></div>' +
-      '</div>';
-
-    // Répartition par groupe (4 semaines)
-    var since = E.shiftDate(todayStr(), -28);
-    var gv = E.groupVolume(ST.ses, IX, since, bwAt);
-    var gk = Object.keys(gv).sort(function (a, b) { return gv[b] - gv[a]; });
-    if (gk.length) {
-      var max = gv[gk[0]] || 1;
-      h += '<div class="card"><h2>4 dernières semaines — par groupe</h2>';
-      gk.forEach(function (g) {
-        h += '<div class="gbar"><span class="nm ellip">' + esc(gName(g)) + '</span>' +
-          '<span class="tr"><span class="fl" style="width:' + Math.max(2, (gv[g] / max) * 100).toFixed(1) + '%;background:' + gColor(g) + '"></span></span>' +
-          '<span class="vl">' + E.fmtVol(gv[g]) + '</span></div>';
-      });
-      h += '<div class="tiny muted" style="margin-top:var(--s2)">Le groupe principal compte pour 1, les groupes secondaires pour 0,5.</div></div>';
-    }
-
-    // Records
-    h += '<div class="card"><h2>Records</h2>';
-    var byDate = ids.slice().sort(function (a, b) { return best[b].d < best[a].d ? -1 : 1; });
-    byDate.forEach(function (id) {
-      var b = best[id];
-      var exr = exOf(id);
-      h += '<div class="rec">' +
-        '<span class="gdot" style="background:' + gColor(exr.g) + '"></span>' +
-        '<span class="grow"><span class="ellip" style="display:block">' + esc(exName(id)) + '</span>' +
-        '<span class="tiny muted">' + esc(relDate(b.d)) + '</span></span>' +
-        '<span class="w">' + (exr.sec ? (b.w ? '+' + num(b.w) + ' · ' : '') + fmtSec(b.r)
-          : num(b.w) + ' × ' + b.r) + '</span>' +
-        '<span class="e">' + (exr.sec ? '' : '1RM ' + num(b.e1rm)) + '</span>' +
-        '</div>';
-    });
-    h += '</div>';
-
-    // Poids de corps
     h += '<div class="card"><h2>Poids de corps</h2>' +
-      '<div class="row"><input id="bwIn" type="text" inputmode="decimal" autocomplete="off" placeholder="' + num(bwNow()) + '" class="grow">' +
-      '<button class="btn" data-act="bwadd">Noter</button></div>';
+      '<div class="row"><input id="bwIn" type="text" inputmode="decimal" autocomplete="off" placeholder="' +
+      num(bwNow()) + '" class="grow"><button class="btn" data-act="bwadd">Noter</button></div>';
     if (ST.bw.length) {
-      var sorted = ST.bw.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+      var tri = ST.bw.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
       h += '<div class="small muted" style="margin-top:var(--s3)">' +
-        sorted.slice(0, 5).map(function (b) { return esc(relDate(b.d)) + ' : <b>' + num(b.w) + ' kg</b>'; }).join(' · ') +
+        tri.slice(0, 4).map(function (b) { return esc(relDate(b.d)) + ' : <b>' + num(b.w) + ' kg</b>'; }).join(' · ') +
         '</div>';
     } else {
-      h += '<div class="tiny muted" style="margin-top:var(--s2)">Sert à compter les tractions et les pompes dans le tonnage.</div>';
+      h += '<div class="hint">Sert à compter les pompes et les tractions.</div>';
     }
     h += '</div>';
 
@@ -1155,14 +1108,46 @@
     return h;
   }
 
-  function mostUsedExercise(ids) {
-    var cnt = {}, i, j;
-    for (i = 0; i < ST.ses.length; i++) {
-      for (j = 0; j < ST.ses[i].s.length; j++) cnt[ST.ses[i].s[j].x] = (cnt[ST.ses[i].s[j].x] || 0) + 1;
+  /** Un exercice : son record, sa progression, ses dernières séances. */
+  function blocProgres(exId) {
+    var ex = exOf(exId);
+    var pts = E.exerciseMax(ST.ses, exId, IX, bwAt);
+    if (!pts.length) return '';
+
+    var dernier = pts[pts.length - 1];
+    var record = pts[0], k;
+    for (k = 1; k < pts.length; k++) if (pts[k].v > record.v) record = pts[k];
+
+    var lib = function (p) {
+      if (p.unit === 's') return fmtSec(p.r);
+      if (p.unit === 'reps') return p.r + ' reps';
+      return num(p.w) + ' kg × ' + p.r;
+    };
+
+    var ecart = E.r2(dernier.v - (pts.length > 1 ? pts[0].v : dernier.v));
+    var suffixe = dernier.unit === 's' ? ' s' : dernier.unit === 'reps' ? ' reps' : ' kg';
+
+    var h = '<div class="card">';
+    h += '<div class="row" style="margin-bottom:var(--s3)">' +
+      '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
+      '<b class="grow ellip">' + esc(ex.n) + '</b>' +
+      '<span class="tiny muted">' + pts.length + ' séance' + (pts.length > 1 ? 's' : '') + '</span></div>';
+
+    h += '<div class="prmax"><span class="v">' + esc(lib(record)) + '</span>' +
+      '<span class="l">meilleure série · ' + esc(relDate(record.d)) + '</span></div>';
+
+    if (pts.length >= 2) {
+      h += '<div id="ch_' + esc(exId) + '" class="prch"></div>';
+      h += '<div class="prfoot">' +
+        '<span>Dernière : <b>' + esc(lib(dernier)) + '</b></span>' +
+        '<span class="' + (ecart > 0 ? 'up' : ecart < 0 ? 'dn' : '') + '">' +
+        (ecart > 0 ? '+' : '') + num(ecart) + suffixe + ' depuis le début</span>' +
+        '</div>';
+    } else {
+      h += '<div class="prfoot"><span class="muted">Une seule séance — la courbe viendra à la prochaine.</span></div>';
     }
-    var best = ids[0], k;
-    for (k = 0; k < ids.length; k++) if ((cnt[ids[k]] || 0) > (cnt[best] || 0)) best = ids[k];
-    return best;
+    h += '</div>';
+    return h;
   }
 
   /* --------------------------- Graphiques SVG ----------------------- */
@@ -1170,62 +1155,22 @@
   /** "2026-08-10" -> "10/08" : une date se situe, un numéro de semaine ISO non. */
   function dayMonth(ds) { return ds.slice(8) + '/' + ds.slice(5, 7); }
 
+  /** "2026-08-10" -> "10/08". */
+  function dayMonth(ds) { return ds.slice(8) + '/' + ds.slice(5, 7); }
+
   function drawCharts() {
-    var wk = E.weekSeries(ST.ses, IX, bwAt).slice(-12);
-    var box = $('chWeek');
-    if (box) box.innerHTML = barChart(wk.map(function (w) {
-      return { v: w.vol, l: dayMonth(E.weekStart(w.k)) };
-    }), E.weekKey(todayStr()) === (wk.length ? wk[wk.length - 1].k : ''));
-
-    var ex = $('chEx');
-    if (ex && UI.proEx) {
-      var exo = exOf(UI.proEx);
-      var pts = E.exerciseSeries(ST.ses, UI.proEx, IX, bwAt);
-
-      /* Ce qu'on suit dépend de l'exercice :
-         - gainage        -> la durée tenue ;
-         - poids du corps -> le nombre de répétitions. Suivre un 1RM estimé
-           afficherait « -6,7 kg » simplement parce qu'on a maigri, alors que
-           la performance a progressé ;
-         - le reste       -> le 1RM estimé. */
-      var mode = exo.sec ? 'sec' : (exo.bw && !lesteQuelquePart(pts) ? 'reps' : 'kg');
-      var valeur = function (pp) { return mode === 'reps' ? pp.top.r : pp.e1rm; };
-      var unites = { sec: 's', reps: 'reps', kg: 'kg' };
-
-      ex.innerHTML = lineChart(
-        pts.map(function (p) { return { v: valeur(p), l: dayMonth(p.d) }; }),
-        unites[mode]
+    var vus = Object.keys(IX), i;
+    for (i = 0; i < ST.ses.length; i++) { /* rien : les blocs sont déjà rendus */ }
+    var blocs = document.querySelectorAll('[id^="ch_"]');
+    for (i = 0; i < blocs.length; i++) {
+      var exId = blocs[i].id.slice(3);
+      var pts = E.exerciseMax(ST.ses, exId, IX, bwAt);
+      if (pts.length < 2) { blocs[i].innerHTML = ''; continue; }
+      blocs[i].innerHTML = lineChart(
+        pts.map(function (p) { return { v: p.v, l: dayMonth(p.d) }; }),
+        pts[0].unit
       );
-      var note = $('exNote');
-      if (note && pts.length) {
-        var f = pts[0], l = pts[pts.length - 1];
-        var d = E.r1(valeur(l) - valeur(f));
-        var evol = mode === 'sec' ? num(d) + ' s tenues'
-          : mode === 'reps' ? num(d) + ' répétitions'
-            : num(d) + ' kg de 1RM estimé';
-        note.innerHTML = 'Meilleure série : <b>' + esc(setLabel(
-          { w: E.r2(l.top.w - (exo.bw ? bwNow(l.d) : 0)), r: l.top.r }, exo)) + '</b> ' + esc(relDate(l.d)) +
-          ' · ' + (d >= 0 ? '+' : '') + evol + ' depuis le début' +
-          ' · ' + pts.length + ' séance' + (pts.length > 1 ? 's' : '');
-      } else if (note) {
-        note.textContent = '';
-      }
     }
-  }
-
-  /**
-   * Histogramme du tonnage hebdomadaire.
-   * L'échelle haute est une valeur ronde RÉELLE (E.niceMax), imprimée sur le
-   * graphique : une barre sans repère chiffré ne dit rien.
-   */
-  /** Vrai si l'exercice au poids du corps a été lesté au moins une fois :
-   *  dans ce cas la charge redevient l'indicateur pertinent. */
-  function lesteQuelquePart(pts) {
-    var i;
-    for (i = 0; i < pts.length; i++) {
-      if (E.r2(pts[i].top.w - bwNow(pts[i].d)) > 0.01) return true;
-    }
-    return false;
   }
 
   function barChart(data, lastIsCurrent) {
@@ -1396,11 +1341,15 @@
   }
 
   function closeSheet(depuisRetour) {
+    var etaitOuverte = !!$('sheet').innerHTML;
     if (sheetClose) { try { sheetClose(); } catch (e) { } }
     sheetClose = null; sheetBack = null;
     pickPour = null;          // sélecteur refermé sans choix : on le désarme
     $('sheet').innerHTML = '';
-    if (!depuisRetour) popLayer();
+    // Ne dépiler QUE si une feuille était réellement ouverte : sinon on consomme
+    // une entrée d'historique qui ne nous appartient pas, et history.back() fait
+    // quitter l'application.
+    if (etaitOuverte && !depuisRetour) popLayer();
     render();
   }
 
@@ -1555,6 +1504,8 @@
       '<div class="hint">Le pas passe automatiquement au plus petit incrément possible sur la barre pour les exercices à la barre.</div></div>' +
       toggle('stRpe', 'Noter le RPE', 'Une ligne de boutons 6→10 après chaque série (difficulté ressentie).', s.rpe) +
       toggle('stCues', 'Rappels techniques', 'Affiche le point clé de forme sous l’exercice actif.', s.cues) +
+      toggle('stPlate', 'Calcul des disques', 'Dit quels disques mettre par côté, et sur quelle barre.', s.plateCalc) +
+      toggle('stWarm', 'Marquer les échauffements', 'Une série marquée est exclue des maximums.', s.warmup) +
       toggle('stReport', 'Bouton « signaler »', 'Un drapeau dans l’en-tête pour noter un souci sans quitter la séance.', s.report) +
       '</div>';
 
@@ -1566,7 +1517,7 @@
       toggle('stVib', 'Vibration', '', s.vibrate) +
       '</div>';
 
-    h += '<div class="card"><h2>Barres et disques</h2>' +
+    if (s.plateCalc) h += '<div class="card"><h2>Barres et disques</h2>' +
       '<div class="field"><label for="stBars">Barres disponibles (kg)</label>' +
       '<input id="stBars" type="text" inputmode="decimal" autocomplete="off" value="' +
       esc((s.bars || [s.bar]).map(num).join(', ')) + '">' +
@@ -2006,7 +1957,7 @@
       }
       if (UI.act) c.exerciceActif = { id: UI.act, nom: exName(UI.act) };
       c.total = { seances: ST.ses.length, exercicesPerso: Object.keys(ST.ex).length };
-      if (UI.tab === 'pro' && UI.proEx) c.courbeAffichee = exName(UI.proEx);
+
     } catch (e) { c.erreurContexte = String(e && e.message); }
     return c;
   }
@@ -2093,9 +2044,17 @@
       });
       return;
     }
-    if (a === 'rest-add') {
-      rest.end += 30000; rest.total += 30;
-      ST.rest = { end: rest.end, total: rest.total }; save();
+    if (a === 'rest-add' || a === 'rest-sub') {
+      var pas = a === 'rest-add' ? 30 : -30;
+      var restant = Math.max(5, Math.round((rest.end - Date.now()) / 1000) + pas);
+      rest.end = Date.now() + restant * 1000;
+      rest.total = Math.max(rest.total + pas, restant);
+      // La durée ajustée devient la nouvelle durée par défaut : on la choisit
+      // une fois, elle est reprise à chaque relance.
+      ST.set.rest = Math.max(5, (Number(ST.set.rest) || 0) + pas);
+      ST.rest = { end: rest.end, total: rest.total };
+      save();
+      majChipRepos();
       restTick(); return;
     }
     if (a === 'rest-skip') { restStop(); return; }
@@ -2284,7 +2243,8 @@
     /* --- réglages --- */
     if (a === 'sw') {
       var map = { stRpe: 'rpe', stCues: 'cues', stRestAuto: 'restAuto', stSound: 'sound',
-        stVib: 'vibrate', stReport: 'report', stCloud: 'cloud' };
+        stVib: 'vibrate', stReport: 'report', stCloud: 'cloud',
+        stPlate: 'plateCalc', stWarm: 'warmup' };
       var k = map[t.id];
       if (!k) return;
       ST.set[k] = !ST.set[k];
@@ -2292,6 +2252,7 @@
       t.setAttribute('aria-checked', ST.set[k] ? 'true' : 'false');
       save();
       if (k === 'report') majBoutonRapport();
+      if (k === 'plateCalc' || k === 'warmup') { applySettings(); openSettings(); }
       return;
     }
     if (a === 'pl-' || a === 'pl+') {
@@ -2377,7 +2338,7 @@
 
   document.addEventListener('change', function (ev) {
     if (ev.target.id === 'impFile' && ev.target.files && ev.target.files[0]) doImport(ev.target.files[0]);
-    if (ev.target.id === 'proSel') { UI.proEx = ev.target.value; render(); }
+
   });
 
   /* Un champ numérique pré-rempli doit être remplaçable d'une frappe : sans

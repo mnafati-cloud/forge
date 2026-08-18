@@ -59,6 +59,8 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
     step: 2,
     vest: 10,
     vestEx: { 'bb-squat': 1 },
+    plateCalc: false,
+    warmup: false,
     rest: 120,
     restAuto: false,
     sound: true,
@@ -300,6 +302,64 @@ test('tous les exercices chronométrés du catalogue portent le drapeau sec', ()
     assert.equal(IX[id].sec, 1, `${id} devrait être marqué sec:1`);
   }
   assert.ok(!IX['bb-bench'].sec, 'un exercice en répétitions ne doit pas être marqué sec');
+});
+
+/* 7ter. Max atteint par séance ---------------------------------------- */
+
+test('exerciseMax donne la charge la plus LOURDE de chaque séance', () => {
+  const S = [
+    ses('a', '2026-08-01', [
+      set('bb-squat', 77.5, 8, { u: 1 }),   // échauffement : ignoré
+      set('bb-squat', 97.5, 8),
+      set('bb-squat', 92.5, 10)             // plus de reps, mais moins lourd
+    ]),
+    ses('b', '2026-08-08', [set('bb-squat', 103.5, 8), set('bb-squat', 101.5, 6)])
+  ];
+  const pts = E.exerciseMax(S, 'bb-squat', IX, 80);
+  assert.equal(pts.length, 2);
+  assert.equal(pts[0].w, 97.5, 'le max est la charge, pas le 1RM estimé');
+  assert.equal(pts[0].r, 8, 'et les reps faites à cette charge');
+  assert.equal(pts[1].w, 103.5);
+  assert.equal(pts[1].d, '2026-08-08');
+});
+
+test('exerciseMax départage deux séries de même charge par les reps', () => {
+  const S = [ses('a', '2026-08-01', [set('bb-bench', 70, 5), set('bb-bench', 70, 8)])];
+  const pts = E.exerciseMax(S, 'bb-bench', IX, 80);
+  assert.equal(pts[0].w, 70);
+  assert.equal(pts[0].r, 8, 'à charge égale, la meilleure série est celle avec le plus de reps');
+});
+
+test('exerciseMax suit la DURÉE pour un exercice chronométré', () => {
+  const S = [
+    ses('a', '2026-08-01', [set('bw-plank', 0, 40)]),
+    ses('b', '2026-08-08', [set('bw-plank', 0, 75)])
+  ];
+  const pts = E.exerciseMax(S, 'bw-plank', IX, 80);
+  assert.equal(pts[0].v, 40, 'la valeur suivie est la durée');
+  assert.equal(pts[1].v, 75);
+});
+
+test('exerciseMax suit les RÉPÉTITIONS au poids du corps sans lest', () => {
+  const S = [
+    ses('a', '2026-08-01', [set('bw-pushup', 0, 20)]),
+    ses('b', '2026-08-08', [set('bw-pushup', 0, 26)])
+  ];
+  const pts = E.exerciseMax(S, 'bw-pushup', IX, 80);
+  assert.equal(pts[0].v, 20);
+  assert.equal(pts[1].v, 26);
+  assert.equal(pts[1].unit, 'reps');
+});
+
+test('exerciseMax ignore une séance sans série exploitable', () => {
+  const S = [
+    ses('a', '2026-08-01', [set('bb-squat', 90, 5)]),
+    ses('b', '2026-08-08', [set('bb-bench', 70, 5)]),      // pas de squat ici
+    ses('c', '2026-08-15', [set('bb-squat', 95, 5, { u: 1 })])  // que de l'échauffement
+  ];
+  const pts = E.exerciseMax(S, 'bb-squat', IX, 80);
+  assert.equal(pts.length, 1);
+  assert.equal(pts[0].d, '2026-08-01');
 });
 
 /* 8. Volume par groupe ------------------------------------------------ */

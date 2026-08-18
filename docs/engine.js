@@ -44,6 +44,11 @@
        elle est portée. */
     vest: 10,
     vestEx: { 'bb-squat': 1 },
+    /* Éteints par défaut : « pourquoi se tracasser des disques ? ». Le calcul
+       sert à qui change souvent de charge ; l'échauffement n'excluait la série
+       que d'un tonnage qui n'existe plus. Rallumables d'un interrupteur. */
+    plateCalc: false,
+    warmup: false,
     rest: 120,
     restAuto: false,
     sound: true,
@@ -243,6 +248,58 @@
         if (est > p.e1rm) { p.e1rm = est; p.top = { w: ld, r: Number(s.r) || 0 }; }
       }
       if (p) pts.push(p);
+    }
+    return pts;
+  }
+
+  /**
+   * MAX ATTEINT par séance : un point par séance, la meilleure série au sens le
+   * plus simple qui soit — la plus lourde, à reps égales la plus longue série.
+   *
+   * Pas de 1RM estimé, pas de tonnage : ce que l'on suit ici, c'est ce qui a
+   * réellement été soulevé. La grandeur dépend de l'exercice :
+   *   - chronométré        -> la durée tenue (unit 's')
+   *   - poids du corps nu  -> le nombre de répétitions (unit 'reps')
+   *   - le reste           -> la charge (unit 'kg')
+   *
+   * Renvoie [{d, sid, w, r, v, unit}] où `v` est la grandeur suivie.
+   */
+  function exerciseMax(sessions, exId, exIndex, bodyweight) {
+    var ex = exIndex[exId] || {};
+    var lesteUneFois = false, i, j, ses, s2;
+
+    // Un exercice au poids du corps LESTÉ au moins une fois se suit en charge.
+    if (ex.bw && !ex.sec) {
+      for (i = 0; i < (sessions || []).length; i++) {
+        for (j = 0; j < (sessions[i].s || []).length; j++) {
+          s2 = sessions[i].s[j];
+          if (s2.x === exId && !s2.u && (Number(s2.w) || 0) > 0) lesteUneFois = true;
+        }
+      }
+    }
+    var unit = ex.sec ? 's' : (ex.bw && !lesteUneFois ? 'reps' : 'kg');
+
+    var pts = [], p, bw, ld, r;
+    for (i = 0; i < (sessions || []).length; i++) {
+      ses = sessions[i];
+      bw = bwOf(bodyweight, ses.d);
+      p = null;
+      for (j = 0; j < (ses.s || []).length; j++) {
+        s2 = ses.s[j];
+        if (s2.x !== exId || s2.u) continue;
+        r = Number(s2.r) || 0;
+        if (r <= 0) continue;
+        ld = effLoad(s2, ex, bw);
+        // Le plus lourd d'abord ; à charge égale, le plus de répétitions.
+        if (!p || ld > p.w || (ld === p.w && r > p.r)) {
+          p = { d: ses.d, sid: ses.id, w: ld, r: r };
+        }
+      }
+      if (p) {
+        p.v = unit === 's' ? p.r : (unit === 'reps' ? p.r : p.w);
+        p.unit = unit;
+        pts.push(p);
+      }
     }
     return pts;
   }
@@ -583,6 +640,7 @@
     sessionStats: sessionStats,
     bestSets: bestSets,
     exerciseSeries: exerciseSeries,
+    exerciseMax: exerciseMax,
     lastPerf: lastPerf,
     prCheck: prCheck,
     groupVolume: groupVolume,
