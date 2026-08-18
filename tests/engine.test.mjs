@@ -62,6 +62,7 @@ test('DEF_SET est le contrat de réglages (toute clé ajoutée passe par ce test
     plateCalc: false,
     warmup: false,
     proMode: 'auto',
+    lang: 'fr',
     rest: 120,
     restAuto: false,
     sound: true,

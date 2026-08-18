@@ -219,6 +219,7 @@
        ne le fait qu'une fois, pour une raison écrite. */
     if (!s.mig || typeof s.mig !== 'object') s.mig = {};
     if (E.TRACK_MODES.indexOf(s.set.proMode) < 0) s.set.proMode = 'auto';
+    if (s.set.lang !== 'en') s.set.lang = 'fr';
     if (!s.set.vestEx || typeof s.set.vestEx !== 'object') s.set.vestEx = {};
     if (!isFinite(Number(s.set.vest)) || Number(s.set.vest) < 0) s.set.vest = 0;
     if (!Array.isArray(s.set.bars) || !s.set.bars.length) s.set.bars = [Number(s.set.bar) || 20];
@@ -298,10 +299,19 @@
   var IX = {};
   function reindex() { IX = E.indexExercises(allExercises()); }
 
-  function exName(id) { return (IX[id] && IX[id].n) || id; }
+  /** Vocabulaire d'entraînement dans la langue choisie, français par défaut. */
+  function enAnglais() { return ST.set.lang === 'en'; }
+  function nomDe(o) {
+    if (!o) return '';
+    return (enAnglais() && o.en) ? o.en : (o.n || '');
+  }
+  function exName(id) { return (IX[id] && nomDe(IX[id])) || id; }
+  function eqName(k) { return nomDe(CAT.EQUIP[k]); }
+  /** Rappel technique dans la langue choisie. */
+  function cueDe(ex) { return (enAnglais() && ex.ce) ? ex.ce : (ex.c || ''); }
   function exOf(id) { return IX[id] || { id: id, n: id, g: 'full', eq: 'bw' }; }
   function gColor(g) { return (CAT.GROUPS[g] && CAT.GROUPS[g].c) || 'var(--fg3)'; }
-  function gName(g) { return (CAT.GROUPS[g] && CAT.GROUPS[g].n) || g; }
+  function gName(g) { return nomDe(CAT.GROUPS[g]) || g; }
 
   /** Poids de corps à une date donnée. */
   function bwNow(dateStr) { return E.bodyweightAt(ST.bw, dateStr || todayStr(), ST.set.bw); }
@@ -731,8 +741,8 @@
 
     h += '<button class="h" data-act="focus" data-id="' + esc(exId) + '">' +
       '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
-      '<span class="grow"><span class="nm">' + esc(ex.n) + '</span><br>' +
-      '<span class="sub">' + esc(gName(ex.g)) + ' · ' + esc(CAT.EQUIP[ex.eq] || '') +
+      '<span class="grow"><span class="nm">' + esc(nomDe(ex)) + '</span><br>' +
+      '<span class="sub">' + esc(gName(ex.g)) + ' · ' + esc(eqName(ex.eq)) +
       (mine.length ? ' · ' + mine.length + ' série' + (mine.length > 1 ? 's' : '') : '') +
       '</span></span>' +
       '<span class="chev">' + ico(active ? 'chevronDown' : 'chevronRight', 20) + '</span></button>';
@@ -764,10 +774,10 @@
           }).join(', ') + '</div>';
       }
       h += pad(ex);
-      if (ST.set.cues && ex.c) h += '<div class="cue">' + ico('bulb', 16) + '<span>' + esc(ex.c) + '</span></div>';
+      if (ST.set.cues && cueDe(ex)) h += '<div class="cue">' + ico('bulb', 16) + '<span>' + esc(cueDe(ex)) + '</span></div>';
       // Action destructrice : tout en bas du bloc, loin du bouton de validation.
       h += '<button class="exdel" data-act="ex-del" data-id="' + esc(exId) + '" ' +
-        'aria-label="Retirer ' + esc(ex.n) + ' de la séance">' + ico('trash', 15) +
+        'aria-label="Retirer ' + esc(nomDe(ex)) + ' de la séance">' + ico('trash', 15) +
         '<span>Retirer de la séance</span></button>';
     }
 
@@ -976,7 +986,7 @@
       var mine = setsOf(ses, exs[i]);
       h += '<div class="card"><div class="row" style="margin-bottom:var(--s2)">' +
         '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
-        '<b class="grow">' + esc(ex.n) + '</b></div>';
+        '<b class="grow">' + esc(nomDe(ex)) + '</b></div>';
       var n = 0;
       mine.forEach(function (m) {
         if (!m.s.u) n++;
@@ -1030,7 +1040,7 @@
     var ref = mine.length ? mine[mine.length - 1].s : null;
     askDialog({
       title: 'Ajouter une série',
-      text: ex.n + ' — ' + longDate(ses.d),
+      text: nomDe(ex) + ' — ' + longDate(ses.d),
       ok: 'Ajouter',
       inputs: [
         { key: 'w', label: (ex.sec || ex.bw) ? 'Lest (kg)' : 'Charge (kg)', value: ref ? num(ref.w) : '0' },
@@ -1151,7 +1161,7 @@
     var h = '<div class="card">';
     h += '<div class="row" style="margin-bottom:var(--s3)">' +
       '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
-      '<b class="grow ellip">' + esc(ex.n) + '</b>' +
+      '<b class="grow ellip">' + esc(nomDe(ex)) + '</b>' +
       '<span class="tiny muted">' + pts.length + ' séance' + (pts.length > 1 ? 's' : '') + '</span></div>';
 
     var titreRecord = mode === 'volses' ? 'meilleure séance'
@@ -1380,6 +1390,12 @@
 
   var pickQ = '', pickG = '', pickPour = null;
 
+  /** Minuscules sans accents : « développé » se trouve en tapant « developpe ». */
+  function sansAccents(x) {
+    var t = String(x || '').toLowerCase();
+    return t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+  }
+
   function openPicker() {
     pickQ = ''; pickG = '';
     renderPicker();
@@ -1395,11 +1411,22 @@
           '<span class="gdot" style="background:' + gColor(g) + '"></span>' + esc(gName(g)) + '</button>';
       }).join('') + '</div>';
 
-    var q = pickQ.trim().toLowerCase();
+    var q = sansAccents(pickQ.trim());
     var list = allExercises().filter(function (ex) {
       if (ex.off) return false;
       if (pickG && ex.g !== pickG && (ex.g2 || []).indexOf(pickG) < 0) return false;
-      if (q && ex.n.toLowerCase().indexOf(q) < 0 && (CAT.EQUIP[ex.eq] || '').toLowerCase().indexOf(q) < 0) return false;
+      /* On cherche dans les DEUX langues, quelle que soit celle affichée :
+         taper « row » doit trouver le rowing même en français, et « rowing »
+         doit trouver le barbell row même en anglais. */
+      if (q) {
+        var champs = [ex.n, ex.en, eqName(ex.eq), gName(ex.g),
+          CAT.GROUPS[ex.g] && CAT.GROUPS[ex.g].en];
+        var trouve = false, ci;
+        for (ci = 0; ci < champs.length; ci++) {
+          if (champs[ci] && sansAccents(champs[ci]).indexOf(q) >= 0) { trouve = true; break; }
+        }
+        if (!trouve) return false;
+      }
       return true;
     });
 
@@ -1414,7 +1441,7 @@
       var ra = a.id in recent ? recent[a.id] : 999;
       var rb = b.id in recent ? recent[b.id] : 999;
       if (ra !== rb) return ra - rb;
-      return a.n.localeCompare(b.n, 'fr');
+      return nomDe(a).localeCompare(nomDe(b), enAnglais() ? 'en' : 'fr');
     });
 
     h += '<div class="exlist">';
@@ -1428,8 +1455,8 @@
 
       h += '<button data-act="pick-ex" data-id="' + esc(ex.id) + '">' +
         '<span class="gdot" style="background:' + gColor(ex.g) + '"></span>' +
-        '<span class="grow"><span class="nm">' + esc(ex.n) + '</span><br>' +
-        '<span class="sub">' + esc(gName(ex.g)) + ' · ' + esc(CAT.EQUIP[ex.eq] || '') + '</span></span>' +
+        '<span class="grow"><span class="nm">' + esc(nomDe(ex)) + '</span><br>' +
+        '<span class="sub">' + esc(gName(ex.g)) + ' · ' + esc(eqName(ex.eq)) + '</span></span>' +
         '</button>';
     });
     h += '</div>';
@@ -1485,7 +1512,7 @@
       '<div class="field"><label>Équipement</label><div class="row wrap">' +
       Object.keys(CAT.EQUIP).map(function (e2) {
         return '<button class="chip' + (NEWEX.eq === e2 ? ' on' : '') + '" data-act="nx-eq" data-e="' + esc(e2) + '">' +
-          esc(CAT.EQUIP[e2]) + '</button>';
+          esc(eqName(e2)) + '</button>';
       }).join('') + '</div>' +
       '<div class="hint">« Barre » active le calcul des disques. « Poids du corps » compte ton poids dans le tonnage.</div></div>' +
       '<button class="btn pri big" data-act="nx-save">' + ico('check', 21) + 'Créer l’exercice</button>';
@@ -1560,6 +1587,13 @@
       '<div class="field"><label>Poids de corps par défaut (kg)</label>' +
       '<input id="stBw" type="number" step="0.5" value="' + dec(s.bw) + '">' +
       '<div class="hint">Utilisé tant qu’aucune pesée n’a été notée dans l’onglet Progrès. Compte les pompes et tractions dans le tonnage.</div></div>' +
+      '<div class="field"><label for="stLang">Langue des exercices</label>' +
+      '<select id="stLang">' +
+      [['fr', 'Français'], ['en', 'English']].map(function (l) {
+        return '<option value="' + l[0] + '"' + (s.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>';
+      }).join('') + '</select>' +
+      '<div class="hint">Noms des exercices, groupes musculaires et rappels techniques. ' +
+      'La recherche fonctionne dans les deux langues quel que soit ce choix.</div></div>' +
       '<div class="field"><label>Thème</label>' +
       '<select id="stTheme">' +
       ['auto', 'dark', 'light'].map(function (t) {
@@ -1759,6 +1793,7 @@
     }
     v = parseFloat(g('stBw')); if (v > 0) ST.set.bw = v;
     v = g('stTheme'); if (v) ST.set.theme = v;
+    v = g('stLang'); if (v === 'fr' || v === 'en') ST.set.lang = v;
     var tk = $('ghtok');
     if (tk && tk.value.trim()) { setGhToken(tk.value); tk.value = ''; }
     applyTheme();

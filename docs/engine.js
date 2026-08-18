@@ -51,6 +51,9 @@
     warmup: false,
     /* Grandeur affichée dans l'onglet Progrès (cf. TRACK_MODES). */
     proMode: 'auto',
+    /* Langue du vocabulaire d'entraînement : 'fr' | 'en'. La recherche du
+       sélecteur d'exercices interroge TOUJOURS les deux. */
+    lang: 'fr',
     rest: 120,
     restAuto: false,
     sound: true,

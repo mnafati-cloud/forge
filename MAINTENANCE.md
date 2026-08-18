@@ -89,6 +89,16 @@ s'occupe seule des téléphones qui ont l'ancien état. **On n'enlève jamais un
 
 ### 1.3 `docs/exercises.js`
 
+**Bilingue.** Chaque exercice porte `n` (français) et `en` (anglais), chaque rappel technique
+`c` et `ce`. `GROUPS` et `EQUIP` ont aussi `n` / `en`. Le réglage `set.lang` (`'fr'` | `'en'`)
+choisit l'affichage — jamais l'identifiant, qui reste éternel et unique.
+
+**La recherche interroge TOUJOURS les deux langues**, quel que soit le réglage, et ignore les
+accents. C'est le vrai correctif : l'utilisateur cherchait « horizontal row » et ne trouvait
+pas « Rowing barre ». Un réglage de langue seul n'aurait résolu le problème qu'à moitié — il
+faut encore savoir dans quelle langue chercher.
+
+
 ```js
 { id, n, g, g2?, eq, bar?, bw?, uni?, bench?, c?, off? }
 ```
